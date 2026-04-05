@@ -1,15 +1,16 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 
-// This safely checks for the key so the build doesn't crash
+// This placeholder prevents the "Build Error" you saw in the logs
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 
 export async function POST(req) {
   try {
     const { priceId } = await req.json();
     
-    if (!process.env.STRIPE_SECRET_KEY) {
-      throw new Error("Stripe Secret Key is missing in Environment Variables.");
+    // Real check happens only when someone actually clicks the button
+    if (!process.env.STRIPE_SECRET_KEY || process.env.STRIPE_SECRET_KEY === 'sk_test_placeholder') {
+      return NextResponse.json({ error: "Stripe Secret Key is not configured in Vercel." }, { status: 500 });
     }
 
     const session = await stripe.checkout.sessions.create({
@@ -22,7 +23,6 @@ export async function POST(req) {
     
     return NextResponse.json({ url: session.url });
   } catch (error) {
-    console.error("Stripe Error:", error.message);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
