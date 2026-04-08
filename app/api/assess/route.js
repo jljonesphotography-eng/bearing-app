@@ -15,13 +15,17 @@ const FOLLOW_UP_USER_MESSAGE =
 const SYSTEM_PROMPT_STRUCTURED_OUTPUT_ONLY =
   'You must now output ONLY a JSON object wrapped in <assessment_result> tags. No other text before the tags. The JSON must contain: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence about what this person genuinely brings), zone (Zone 1, Zone 2, Zone 3, or Zone 4), action_1, action_2, action_3 (three specific next actions), energy_profile (Build, Explore, Optimize, or Honest_Conversation). Output the tags immediately.';
 
+const SYSTEM_PROMPT_FORCE_VERDICT =
+  'Based on the conversation history provided, output ONLY a JSON object wrapped in <assessment_result> tags. Nothing before the tags. The JSON must contain exactly these fields: verdict (must be one of: WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (integer 0-100), primary_finding (one specific sentence naming what this person genuinely brings that AI cannot replace), zone (one of: Zone 1, Zone 2, Zone 3, or Zone 4), action_1 (specific next action), action_2 (specific next action), action_3 (specific next action), energy_profile (one of: Build, Explore, Optimize, Honest_Conversation). Output the opening tag, then valid JSON, then the closing tag. Nothing else.';
+
 /** First turn when POST body has messages: [] */
 const ASSESSMENT_START_USER_MESSAGE =
   'Please begin the Bearing conversational assessment.';
 
-function normalizeMessages(messages) {
+function normalizeMessages(messages, { allowEmptyStart = true } = {}) {
   if (!Array.isArray(messages)) return null;
   if (messages.length === 0) {
+    if (!allowEmptyStart) return null;
     return [{ role: 'user', content: ASSESSMENT_START_USER_MESSAGE }];
   }
   const out = [];
@@ -89,12 +93,17 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
     }
 
-    const messages = normalizeMessages(body?.messages);
+    const forceVerdict = body?.forceVerdict === true;
+
+    const messages = normalizeMessages(body?.messages, {
+      allowEmptyStart: !forceVerdict
+    });
     if (!messages) {
       return NextResponse.json(
         {
-          error:
-            'Expected messages to be an array (empty to start, or { role, content } pairs starting with user).'
+          error: forceVerdict
+            ? 'forceVerdict requires a non-empty messages array (full conversation history).'
+            : 'Expected messages to be an array (empty to start, or { role, content } pairs starting with user).'
         },
         { status: 400 }
       );
@@ -102,16 +111,19 @@ export async function POST(req) {
 
     const anthropic = new Anthropic({ apiKey });
 
+    const systemPrompt = forceVerdict ? SYSTEM_PROMPT_FORCE_VERDICT : SYSTEM_PROMPT;
+
     const response = await anthropic.messages.create({
       model: MODEL,
       max_tokens: 2048,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages
     });
 
     let text = textFromMessage(response);
 
     if (
+      !forceVerdict &&
       messages.length >= MIN_MESSAGES_FOR_RESULT_RETRY &&
       !hasAssessmentResultTags(text)
     ) {

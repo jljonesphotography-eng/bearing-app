@@ -13,6 +13,10 @@ const BG = '#f0f4f8';
 const START_USER_MESSAGE =
   'Please begin the Bearing conversational assessment.';
 
+/** Final user turn for forceVerdict requests (not shown in chat UI) */
+const FORCE_VERDICT_USER_MESSAGE =
+  'Please now output your structured Bearing assessment result in the required format. Produce only valid JSON inside <assessment_result> tags as instructed.';
+
 function stripAssessmentTags(text) {
   if (!text) return '';
   return text
@@ -91,11 +95,15 @@ export default function AssessmentPage() {
   }, [apiMessages, awaiting, scrollToBottom]);
 
   const callAssess = useCallback(
-    async (messagesPayload) => {
+    async (messagesPayload, { forceVerdict = false } = {}) => {
       const res = await fetch('/api/assess', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: messagesPayload })
+        body: JSON.stringify(
+          forceVerdict
+            ? { messages: messagesPayload, forceVerdict: true }
+            : { messages: messagesPayload }
+        )
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -229,6 +237,55 @@ export default function AssessmentPage() {
 
       if (result) {
         await saveResultAndRedirect(result);
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Something went wrong.');
+    } finally {
+      setAwaiting(false);
+    }
+  };
+
+  const userTypedCount = apiMessages.filter(
+    (m) => m.role === 'user' && m.content !== START_USER_MESSAGE
+  ).length;
+  const showGetMyAssessment = started && userTypedCount >= 7;
+
+  const handleGetMyAssessment = async () => {
+    if (!started || awaiting || apiMessages.length === 0) return;
+
+    setError(null);
+    setAwaiting(true);
+
+    const payloadForApi = [
+      ...apiMessages,
+      { role: 'user', content: FORCE_VERDICT_USER_MESSAGE }
+    ];
+
+    try {
+      const data = await callAssess(payloadForApi, { forceVerdict: true });
+      logAssessResponse('forceVerdict /api/assess response', data);
+
+      const assistantText = data.text ?? '';
+      const result =
+        data.result ?? parseStructuredResultFromText(assistantText);
+      if (result && !data.result) {
+        console.log(
+          '[Bearing assess] Parsed result from assistant text (client fallback)',
+          result
+        );
+      }
+
+      setApiMessages((prev) => [
+        ...prev,
+        { role: 'assistant', content: assistantText }
+      ]);
+
+      if (result) {
+        await saveResultAndRedirect(result);
+      } else {
+        setError(
+          'No structured result was returned. Try again or continue the conversation.'
+        );
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
@@ -371,6 +428,30 @@ export default function AssessmentPage() {
           flexShrink: 0
         }}
       >
+        {showGetMyAssessment && (
+          <button
+            type="button"
+            onClick={handleGetMyAssessment}
+            disabled={awaiting}
+            style={{
+              width: '100%',
+              marginBottom: 12,
+              padding: '14px 18px',
+              backgroundColor: GOLD,
+              color: NAVY,
+              border: 'none',
+              borderRadius: 12,
+              fontSize: 15,
+              fontWeight: 800,
+              cursor: awaiting ? 'not-allowed' : 'pointer',
+              opacity: awaiting ? 0.55 : 1,
+              boxShadow: '0 2px 8px rgba(245, 184, 0, 0.35)'
+            }}
+          >
+            Get My Assessment
+          </button>
+        )}
+
         <div
           style={{
             display: 'flex',
