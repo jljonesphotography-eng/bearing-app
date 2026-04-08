@@ -12,8 +12,27 @@ const COLORS = {
   text: '#111827',
   muted: '#6b7280',
   card: '#ffffff',
-  gold: '#F5B800'
+  gold: '#F5B800',
+  teal: '#0d9488',
+  amber: '#f59e0b'
 };
+
+function verdictDisplay(verdict) {
+  const v = String(verdict || '').toUpperCase().replace(/\s+/g, '_');
+  if (v === 'WELL_POSITIONED') return { label: 'Well positioned', bg: COLORS.teal, fg: '#ffffff' };
+  if (v === 'TRANSITION_ADVISED') return { label: 'Transition advised', bg: COLORS.amber, fg: '#1f2937' };
+  if (v === 'EXPOSED') return { label: 'Exposed', bg: COLORS.navy, fg: '#ffffff' };
+  return {
+    label: verdict ? String(verdict).replace(/_/g, ' ') : '—',
+    bg: '#6b7280',
+    fg: '#ffffff'
+  };
+}
+
+function formatEnergyProfile(value) {
+  if (value == null || value === '') return null;
+  return String(value).replace(/_/g, ' ');
+}
 
 function roundScore(value) {
   if (value === null || value === undefined) return null;
@@ -30,7 +49,7 @@ function roundScore(value) {
 export default function DashboardPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [score, setScore] = useState(null);
+  const [submission, setSubmission] = useState(null);
   const [upgrading, setUpgrading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -63,7 +82,9 @@ export default function DashboardPage() {
 
         const { data, error: scoreError } = await supabase
           .from('assessment_submissions')
-          .select('total_score, created_at')
+          .select(
+            'total_score, verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, created_at'
+          )
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
           .limit(1);
@@ -71,9 +92,22 @@ export default function DashboardPage() {
         if (scoreError) throw scoreError;
 
         const latest = Array.isArray(data) && data.length > 0 ? data[0] : null;
-        const nextScore = latest ? roundScore(latest.total_score) : null;
-
-        if (!cancelled) setScore(nextScore);
+        if (!cancelled) {
+          setSubmission(
+            latest
+              ? {
+                  total_score: roundScore(latest.total_score),
+                  verdict: latest.verdict ?? null,
+                  primary_finding: latest.primary_finding ?? null,
+                  zone: latest.zone ?? null,
+                  action_1: latest.action_1 ?? null,
+                  action_2: latest.action_2 ?? null,
+                  action_3: latest.action_3 ?? null,
+                  energy_profile: latest.energy_profile ?? null
+                }
+              : null
+          );
+        }
       } catch (e) {
         if (!cancelled) {
           setError(e instanceof Error ? e.message : 'Failed to load dashboard.');
@@ -120,6 +154,13 @@ export default function DashboardPage() {
       setUpgrading(false);
     }
   };
+
+  const score = submission?.total_score ?? null;
+  const verdictStyle = verdictDisplay(submission?.verdict);
+  const actions = [submission?.action_1, submission?.action_2, submission?.action_3].filter(
+    (a) => a != null && String(a).trim() !== ''
+  );
+  const energyLabel = formatEnergyProfile(submission?.energy_profile);
 
   return (
     <div
@@ -210,6 +251,24 @@ export default function DashboardPage() {
                   textAlign: 'center'
                 }}
               >
+                {submission?.verdict != null && String(submission.verdict).trim() !== '' && (
+                  <div
+                    style={{
+                      display: 'inline-block',
+                      marginBottom: 16,
+                      padding: '10px 18px',
+                      borderRadius: 999,
+                      backgroundColor: verdictStyle.bg,
+                      color: verdictStyle.fg,
+                      fontSize: 15,
+                      fontWeight: 800,
+                      letterSpacing: 0.02
+                    }}
+                  >
+                    {verdictStyle.label}
+                  </div>
+                )}
+
                 <div style={{ color: COLORS.sky, fontSize: 13, fontWeight: 700 }}>
                   Overall Score
                 </div>
@@ -224,6 +283,27 @@ export default function DashboardPage() {
                 >
                   {score === null ? '--' : `${score}%`}
                 </div>
+
+                {submission?.primary_finding != null &&
+                  String(submission.primary_finding).trim() !== '' && (
+                    <blockquote
+                      style={{
+                        margin: '20px 0 0 0',
+                        padding: '14px 16px',
+                        borderLeft: `4px solid ${COLORS.sky}`,
+                        backgroundColor: 'rgba(255,255,255,0.08)',
+                        color: '#e0e7ff',
+                        fontSize: 14,
+                        fontStyle: 'italic',
+                        lineHeight: 1.5,
+                        textAlign: 'left',
+                        borderRadius: '0 10px 10px 0'
+                      }}
+                    >
+                      “{String(submission.primary_finding).trim()}”
+                    </blockquote>
+                  )}
+
                 <div style={{ marginTop: 14, color: COLORS.sky, fontSize: 13 }}>
                   From your latest assessment submission
                 </div>
@@ -240,6 +320,49 @@ export default function DashboardPage() {
                 <div style={{ color: COLORS.navy, fontSize: 16, fontWeight: 800 }}>
                   Next Steps
                 </div>
+
+                {(submission?.zone != null && String(submission.zone).trim() !== '') ||
+                energyLabel ? (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      gap: '8px 16px',
+                      fontSize: 13,
+                      color: COLORS.muted
+                    }}
+                  >
+                    {submission?.zone != null && String(submission.zone).trim() !== '' && (
+                      <span>
+                        <strong style={{ color: '#374151' }}>Zone:</strong> {String(submission.zone).trim()}
+                      </span>
+                    )}
+                    {energyLabel ? (
+                      <span>
+                        <strong style={{ color: '#374151' }}>Energy:</strong> {energyLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {actions.length > 0 && (
+                  <ol
+                    style={{
+                      margin: '16px 0 0 0',
+                      paddingLeft: 22,
+                      color: '#374151',
+                      fontSize: 14,
+                      lineHeight: 1.65
+                    }}
+                  >
+                    {actions.map((item, idx) => (
+                      <li key={idx} style={{ marginBottom: 8 }}>
+                        {String(item).trim()}
+                      </li>
+                    ))}
+                  </ol>
+                )}
 
                 <div style={{ marginTop: 14, color: '#374151', fontSize: 14, lineHeight: 1.55 }}>
                   Review the{' '}
