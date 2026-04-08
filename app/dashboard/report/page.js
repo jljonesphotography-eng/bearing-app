@@ -1,14 +1,43 @@
 'use client';
 
+import { useState } from 'react';
+
 export default function ReportPage() {
+  const [upgrading, setUpgrading] = useState(false);
+  const [error, setError] = useState(null);
+
   const handleUpgrade = async () => {
-    const res = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID }),
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
+    setError(null);
+    setUpgrading(true);
+
+    try {
+      const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
+      if (!priceId) {
+        throw new Error('Missing NEXT_PUBLIC_STRIPE_PRICE_ID.');
+      }
+
+      const res = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceId })
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Checkout request failed.');
+      }
+
+      if (data?.url) {
+        window.location.assign(data.url);
+        return;
+      }
+
+      throw new Error('Checkout session did not return a redirect URL.');
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Upgrade failed.');
+      setUpgrading(false);
+    }
   };
 
   return (
@@ -26,6 +55,22 @@ export default function ReportPage() {
       <p style={{ color: '#666', fontSize: '16px', marginBottom: '40px' }}>
         Unlock your full organizational intelligence report
       </p>
+
+      {error && (
+        <div
+          role="alert"
+          style={{
+            backgroundColor: '#fff7ed',
+            border: '1px solid #fed7aa',
+            color: '#9a3412',
+            padding: '12px 14px',
+            borderRadius: '12px',
+            marginBottom: '18px'
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       {/* Upgrade Card */}
       <div style={{
@@ -45,6 +90,7 @@ export default function ReportPage() {
         </p>
         <button
           onClick={handleUpgrade}
+          disabled={upgrading}
           style={{
             backgroundColor: '#1B3A6B',
             color: '#FFD700',
@@ -52,12 +98,12 @@ export default function ReportPage() {
             fontSize: '18px',
             fontWeight: 'bold',
             borderRadius: '10px',
-            cursor: 'pointer',
+            cursor: upgrading ? 'not-allowed' : 'pointer',
             border: 'none',
             boxShadow: '0 4px 14px rgba(27,58,107,0.3)'
           }}
         >
-          Upgrade to Pro
+          {upgrading ? 'Redirecting…' : 'Upgrade to Pro'}
         </button>
       </div>
 
