@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 const SYSTEM_PROMPT =
-  'You are Bearing — a Human Capability Intelligence assessment system. Run a 7-question conversational assessment one question at a time across these areas: 1) current work and how they do it 2) how they use AI tools 3) a difficult decision they made recently 4) a key working relationship 5) a belief they changed their mind about 6) where they feel least sure of themselves 7) what work they want more of and what costs them. After all 7 questions, produce a JSON result with these fields: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence), zone (Zone 1-4), action_1, action_2, action_3, energy_profile (Build, Explore, Optimize, or Honest_Conversation). Wrap the JSON in assessment_result tags. Until complete, continue the conversation naturally.';
+  'You are Bearing — a Human Capability Intelligence assessment system. Run a 7-question conversational assessment one question at a time across these areas: 1) current work and how they do it 2) how they use AI tools 3) a difficult decision they made recently 4) a key working relationship 5) a belief they changed their mind about 6) where they feel least sure of themselves 7) what work they want more of and what costs them. After all 7 questions, produce a JSON result with these fields: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence), zone (Zone 1-4), action_1, action_2, action_3, energy_profile (Build, Explore, Optimize, or Honest_Conversation). Wrap the JSON in assessment_result tags. Until complete, continue the conversation naturally. IMPORTANT: When you have asked all 7 questions and received all answers, you MUST end your final response with a JSON object wrapped in <assessment_result> tags. Do not skip this step. The JSON must include verdict, score, primary_finding, zone, action_1, action_2, action_3, and energy_profile fields. After the assessment_result tags, add a brief closing sentence.';
 
 const MODEL = 'claude-sonnet-4-20250514';
 
@@ -41,10 +41,20 @@ function textFromMessage(message) {
 function parseAssessmentResult(text) {
   const match = text.match(/<assessment_result>\s*([\s\S]*?)\s*<\/assessment_result>/i);
   if (!match) return null;
-  const raw = match[1].trim();
+  let raw = match[1].trim();
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
   try {
     return JSON.parse(raw);
   } catch {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(raw.slice(start, end + 1));
+      } catch {
+        return null;
+      }
+    }
     return null;
   }
 }
@@ -81,7 +91,7 @@ export async function POST(req) {
 
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 1000,
+      max_tokens: 2048,
       system: SYSTEM_PROMPT,
       messages
     });

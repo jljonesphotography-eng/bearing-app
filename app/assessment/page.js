@@ -20,6 +20,41 @@ function stripAssessmentTags(text) {
     .trim();
 }
 
+/** Mirrors server parsing: tags, optional ```json fences, brace slice fallback */
+function parseStructuredResultFromText(text) {
+  if (!text || typeof text !== 'string') return null;
+  const match = text.match(/<assessment_result>\s*([\s\S]*?)\s*<\/assessment_result>/i);
+  if (!match) return null;
+  let raw = match[1].trim();
+  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+  try {
+    return JSON.parse(raw);
+  } catch {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try {
+        return JSON.parse(raw.slice(start, end + 1));
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
+function logAssessResponse(context, data) {
+  const text = data?.text ?? '';
+  console.log(`[Bearing assess] ${context}`, {
+    hasResultField: Boolean(data?.result),
+    textLength: text.length,
+    hasAssessmentResultTags: /<assessment_result[\s>]/i.test(text),
+    textPreviewStart: text.slice(0, 280),
+    textPreviewEnd: text.slice(-500),
+    resultFromApi: data?.result ?? null
+  });
+}
+
 function displayFromApiMessages(apiMessages) {
   return apiMessages.filter(
     (m, i) =>
@@ -105,6 +140,8 @@ export default function AssessmentPage() {
         status: 'completed'
       };
 
+      console.log('[Bearing assess] Saving to Supabase', row);
+
       const { error: insertError } = await supabase
         .from('assessment_submissions')
         .insert([row]);
@@ -125,15 +162,26 @@ export default function AssessmentPage() {
         const data = await callAssess([]);
         if (cancelled) return;
 
+        logAssessResponse('initial /api/assess response', data);
+
         const assistantText = data.text ?? '';
+        const result =
+          data.result ?? parseStructuredResultFromText(assistantText);
+        if (result && !data.result) {
+          console.log(
+            '[Bearing assess] Parsed result from assistant text (client fallback)',
+            result
+          );
+        }
+
         setApiMessages([
           { role: 'user', content: START_USER_MESSAGE },
           { role: 'assistant', content: assistantText }
         ]);
         setStarted(true);
 
-        if (data.result) {
-          await saveResultAndRedirect(data.result);
+        if (result) {
+          await saveResultAndRedirect(result);
         }
       } catch (e) {
         if (!cancelled) {
@@ -162,14 +210,25 @@ export default function AssessmentPage() {
 
     try {
       const data = await callAssess(nextApi);
+      logAssessResponse('turn /api/assess response', data);
+
       const assistantText = data.text ?? '';
+      const result =
+        data.result ?? parseStructuredResultFromText(assistantText);
+      if (result && !data.result) {
+        console.log(
+          '[Bearing assess] Parsed result from assistant text (client fallback)',
+          result
+        );
+      }
+
       setApiMessages((prev) => [
         ...prev,
         { role: 'assistant', content: assistantText }
       ]);
 
-      if (data.result) {
-        await saveResultAndRedirect(data.result);
+      if (result) {
+        await saveResultAndRedirect(result);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
