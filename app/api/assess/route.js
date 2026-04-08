@@ -2,9 +2,15 @@ import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
 
 const SYSTEM_PROMPT =
-  'You are Bearing — a Human Capability Intelligence assessment system. Run a 7-question conversational assessment one question at a time across these areas: 1) current work and how they do it 2) how they use AI tools 3) a difficult decision they made recently 4) a key working relationship 5) a belief they changed their mind about 6) where they feel least sure of themselves 7) what work they want more of and what costs them. After all 7 questions, produce a JSON result with these fields: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence), zone (Zone 1-4), action_1, action_2, action_3, energy_profile (Build, Explore, Optimize, or Honest_Conversation). Wrap the JSON in assessment_result tags. Until complete, continue the conversation naturally. IMPORTANT: When you have asked all 7 questions and received all answers, you MUST end your final response with a JSON object wrapped in <assessment_result> tags. Do not skip this step. The JSON must include verdict, score, primary_finding, zone, action_1, action_2, action_3, and energy_profile fields. After the assessment_result tags, add a brief closing sentence.';
+  'You are Bearing — a Human Capability Intelligence assessment system. Run a 7-question conversational assessment one question at a time across these areas: 1) current work and how they do it 2) how they use AI tools 3) a difficult decision they made recently 4) a key working relationship 5) a belief they changed their mind about 6) where they feel least sure of themselves 7) what work they want more of and what costs them. After all 7 questions, produce a JSON result with these fields: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence), zone (Zone 1-4), action_1, action_2, action_3, energy_profile (Build, Explore, Optimize, or Honest_Conversation). Wrap the JSON in assessment_result tags. Until complete, continue the conversation naturally. IMPORTANT: When you have asked all 7 questions and received all answers, you MUST end your final response with a JSON object wrapped in <assessment_result> tags. Do not skip this step. The JSON must include verdict, score, primary_finding, zone, action_1, action_2, action_3, and energy_profile fields. After the assessment_result tags, add a brief closing sentence.\n\nCRITICAL INSTRUCTION: AFTER THE USER ANSWERS THE 7TH AND FINAL QUESTION (ABOUT WHAT WORK THEY WANT MORE OF AND WHAT COSTS THEM ENERGY), YOUR RESPONSE MUST CONTAIN TWO PARTS: FIRST, A BRIEF 2-3 SENTENCE CLOSING OBSERVATION. SECOND, YOU MUST OUTPUT THE ASSESSMENT RESULT JSON WRAPPED IN <assessment_result> AND </assessment_result> TAGS. THIS IS NOT OPTIONAL. THE JSON MUST BE VALID AND CONTAIN ALL REQUIRED FIELDS: VERDICT, SCORE, PRIMARY_FINDING, ZONE, ACTION_1, ACTION_2, ACTION_3, ENERGY_PROFILE. IF YOU DO NOT INCLUDE THE TAGS THE ASSESSMENT WILL FAIL. OUTPUT THE TAGS EVEN IF THE CONVERSATION FEELS INCOMPLETE.';
 
 const MODEL = 'claude-sonnet-4-20250514';
+
+/** 8th+ exchange: incoming history length before this turn's assistant reply */
+const MIN_MESSAGES_FOR_RESULT_RETRY = 14;
+
+const FOLLOW_UP_USER_MESSAGE =
+  'Please now provide your assessment result in the required JSON format wrapped in assessment_result tags.';
 
 /** First turn when POST body has messages: [] */
 const ASSESSMENT_START_USER_MESSAGE =
@@ -36,6 +42,10 @@ function textFromMessage(message) {
     .filter((b) => b && b.type === 'text' && typeof b.text === 'string')
     .map((b) => b.text)
     .join('');
+}
+
+function hasAssessmentResultTags(text) {
+  return /<assessment_result[\s>]/i.test(text);
 }
 
 function parseAssessmentResult(text) {
@@ -96,7 +106,29 @@ export async function POST(req) {
       messages
     });
 
-    const text = textFromMessage(response);
+    let text = textFromMessage(response);
+
+    if (
+      messages.length >= MIN_MESSAGES_FOR_RESULT_RETRY &&
+      !hasAssessmentResultTags(text)
+    ) {
+      const followUpMessages = [
+        ...messages,
+        { role: 'assistant', content: text },
+        { role: 'user', content: FOLLOW_UP_USER_MESSAGE }
+      ];
+
+      const second = await anthropic.messages.create({
+        model: MODEL,
+        max_tokens: 2048,
+        system: SYSTEM_PROMPT,
+        messages: followUpMessages
+      });
+
+      const secondText = textFromMessage(second);
+      text = `${text.trimEnd()}\n\n${secondText.trimStart()}`;
+    }
+
     const payload = { text };
 
     const parsed = parseAssessmentResult(text);
