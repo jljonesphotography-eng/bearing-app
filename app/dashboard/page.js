@@ -180,7 +180,7 @@ export default function DashboardPage() {
                 )}
                 <p style={{ color: '#444', marginBottom: '12px', fontSize: '14px' }}>
                   Review the{' '}
-                  
+                  <a
                     href="/dashboard/report"
                     style={{ color: '#1B3A6B', fontWeight: '600', textDecoration: 'underline' }}
                   >
