@@ -10,7 +10,10 @@ const MODEL = 'claude-sonnet-4-20250514';
 const MIN_MESSAGES_FOR_RESULT_RETRY = 14;
 
 const FOLLOW_UP_USER_MESSAGE =
-  'Please now provide your assessment result in the required JSON format wrapped in assessment_result tags.';
+  'Please now output your structured assessment result in the required format.';
+
+const SYSTEM_PROMPT_STRUCTURED_OUTPUT_ONLY =
+  'You must now output ONLY a JSON object wrapped in <assessment_result> tags. No other text before the tags. The JSON must contain: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence about what this person genuinely brings), zone (Zone 1, Zone 2, Zone 3, or Zone 4), action_1, action_2, action_3 (three specific next actions), energy_profile (Build, Explore, Optimize, or Honest_Conversation). Output the tags immediately.';
 
 /** First turn when POST body has messages: [] */
 const ASSESSMENT_START_USER_MESSAGE =
@@ -121,12 +124,11 @@ export async function POST(req) {
       const second = await anthropic.messages.create({
         model: MODEL,
         max_tokens: 2048,
-        system: SYSTEM_PROMPT,
+        system: SYSTEM_PROMPT_STRUCTURED_OUTPUT_ONLY,
         messages: followUpMessages
       });
 
-      const secondText = textFromMessage(second);
-      text = `${text.trimEnd()}\n\n${secondText.trimStart()}`;
+      text = textFromMessage(second);
     }
 
     const payload = { text };
