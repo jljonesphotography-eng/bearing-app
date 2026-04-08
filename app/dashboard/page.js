@@ -16,8 +16,15 @@ const COLORS = {
 };
 
 function roundScore(value) {
-  if (typeof value !== 'number' || Number.isNaN(value)) return null;
-  return Math.round(value);
+  if (value === null || value === undefined) return null;
+  const num =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number.parseFloat(value)
+        : NaN;
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num);
 }
 
 export default function DashboardPage() {
