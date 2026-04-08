@@ -1,39 +1,94 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+const COLORS = {
+  navy: '#1B3A6B',
+  sky: '#93c5fd',
+  bg: '#f0f4f8',
+  text: '#111827',
+  muted: '#6b7280',
+  card: '#ffffff',
+  gold: '#F5B800'
+};
+
+function roundScore(value) {
+  if (typeof value !== 'number' || Number.isNaN(value)) return null;
+  return Math.round(value);
+}
 
 export default function DashboardPage() {
-  const [score, setScore] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [upgrading, setUpgrading] = useState(false);
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [score, setScore] = useState(null);
+  const [upgrading, setUpgrading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const supabase = useMemo(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) return null;
+    return createClient(url, anonKey);
+  }, []);
 
   useEffect(() => {
-    async function getScore() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+    let cancelled = false;
 
-      const { data } = await supabase
-        .from('assessment_submissions')
-        .select('total_score')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(1);
+    async function load() {
+      try {
+        if (!supabase) {
+          throw new Error(
+            'Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY.'
+          );
+        }
 
-      if (data && data.length > 0) {
-        setScore(Math.round(data[0].total_score));
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+
+        const user = userData?.user;
+        if (!user) {
+          router.push('/login');
+          return;
+        }
+
+        const { data, error: scoreError } = await supabase
+          .from('assessment_submissions')
+          .select('total_score, created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (scoreError) throw scoreError;
+
+        const latest = Array.isArray(data) && data.length > 0 ? data[0] : null;
+        const nextScore = latest ? roundScore(latest.total_score) : null;
+
+        if (!cancelled) setScore(nextScore);
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Failed to load dashboard.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-      setLoading(false);
     }
-    getScore();
-  }, []);
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [router, supabase]);
+
+  const handleSignOut = async () => {
+    try {
+      if (supabase) await supabase.auth.signOut();
+    } finally {
+      router.push('/login');
+    }
+  };
 
   const handleUpgrade = async () => {
     setUpgrading(true);
@@ -45,167 +100,173 @@ export default function DashboardPage() {
           priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID
         })
       });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-    } catch (error) {
-      console.error('Upgrade error:', error);
+
+      const data = await res.json().catch(() => ({}));
+      if (data?.url) {
+        window.location.assign(data.url);
+        return;
+      }
+      throw new Error('Checkout session did not return a redirect URL.');
+    } catch (e) {
+      console.error('Upgrade error:', e);
+      setError(e instanceof Error ? e.message : 'Upgrade failed.');
       setUpgrading(false);
     }
   };
 
-  const getScoreColor = (score) => {
-    if (score >= 80) return '#22c55e';
-    if (score >= 60) return '#f59e0b';
-    return '#ef4444';
-  };
-
-  const getScoreLabel = (score) => {
-    if (score >= 80) return 'Strong';
-    if (score >= 60) return 'Developing';
-    return 'Needs Attention';
-  };
-
   return (
-    <div style={{
-      minHeight: '100vh',
-      backgroundColor: '#f0f4f8',
-      fontFamily: 'Arial, sans-serif'
-    }}>
-      {/* Header */}
-      <div style={{
-        backgroundColor: '#1B3A6B',
-        padding: '20px 40px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center'
-      }}>
-        <div>
-          <h1 style={{ color: 'white', margin: 0, fontSize: '24px', fontWeight: '700' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: COLORS.bg,
+        color: COLORS.text,
+        fontFamily:
+          'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"'
+      }}
+    >
+      <header
+        style={{
+          backgroundColor: COLORS.navy,
+          padding: '18px 28px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <div style={{ color: 'white', fontSize: 22, fontWeight: 800, letterSpacing: 0.2 }}>
             Bearing
-          </h1>
-          <p style={{ color: '#93c5fd', margin: 0, fontSize: '13px' }}>
-            Human Capital Intelligence
-          </p>
+          </div>
+          <div style={{ color: COLORS.sky, fontSize: 13 }}>Human Capital Intelligence</div>
         </div>
+
         <button
-          onClick={() => supabase.auth.signOut().then(() => router.push('/login'))}
+          type="button"
+          onClick={handleSignOut}
           style={{
             backgroundColor: 'transparent',
-            border: '1px solid #93c5fd',
-            color: '#93c5fd',
-            padding: '8px 16px',
-            borderRadius: '6px',
+            border: `1px solid ${COLORS.sky}`,
+            color: COLORS.sky,
+            padding: '9px 14px',
+            borderRadius: 8,
             cursor: 'pointer',
-            fontSize: '13px'
+            fontSize: 13,
+            fontWeight: 600
           }}
         >
           Sign Out
         </button>
-      </div>
+      </header>
 
-      {/* Main Content */}
-      <div style={{ padding: '40px', maxWidth: '900px', margin: '0 auto' }}>
-        <h2 style={{ color: '#1B3A6B', fontSize: '22px', marginBottom: '8px' }}>
-          Bearing Dashboard
-        </h2>
-        <p style={{ color: '#666', marginBottom: '32px', fontSize: '15px' }}>
-          Organizational Capability Overview
-        </p>
+      <main style={{ padding: '36px 28px', maxWidth: 980, margin: '0 auto' }}>
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ color: COLORS.navy, fontSize: 22, fontWeight: 800 }}>Dashboard</div>
+          <div style={{ color: COLORS.muted, marginTop: 6, fontSize: 14 }}>
+            Organizational Capability Overview
+          </div>
+        </div>
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              backgroundColor: '#fff7ed',
+              border: '1px solid #fed7aa',
+              color: '#9a3412',
+              padding: '12px 14px',
+              borderRadius: 10,
+              marginBottom: 18,
+              fontSize: 14
+            }}
+          >
+            {error}
+          </div>
+        )}
 
         {loading ? (
-          <p style={{ color: '#666' }}>Loading your results...</p>
+          <div style={{ color: COLORS.muted, fontSize: 14 }}>Loading your results…</div>
         ) : (
           <>
-            {/* Score + Next Steps Row */}
-            <div style={{
-              display: 'flex',
-              gap: '24px',
-              marginBottom: '24px',
-              flexWrap: 'wrap'
-            }}>
-              {/* Score Card */}
-              <div style={{
-                backgroundColor: '#1B3A6B',
-                borderRadius: '12px',
-                padding: '40px',
-                textAlign: 'center',
-                minWidth: '220px',
-                flex: '1'
-              }}>
-                <p style={{ color: '#93c5fd', margin: '0 0 8px 0', fontSize: '14px' }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(240px, 1fr) minmax(320px, 2fr)',
+                gap: 18,
+                alignItems: 'stretch'
+              }}
+            >
+              <section
+                style={{
+                  backgroundColor: COLORS.navy,
+                  borderRadius: 14,
+                  padding: 28,
+                  textAlign: 'center'
+                }}
+              >
+                <div style={{ color: COLORS.sky, fontSize: 13, fontWeight: 700 }}>
                   Overall Score
-                </p>
-                <p style={{
-                  color: 'white',
-                  fontSize: '64px',
-                  fontWeight: '700',
-                  margin: '0 0 8px 0',
-                  lineHeight: '1'
-                }}>
-                  {score !== null ? `${score}%` : '--'}
-                </p>
-                {score !== null && (
-                  <span style={{
-                    backgroundColor: getScoreColor(score),
+                </div>
+                <div
+                  style={{
+                    marginTop: 10,
                     color: 'white',
-                    padding: '4px 12px',
-                    borderRadius: '20px',
-                    fontSize: '13px',
-                    fontWeight: '600'
-                  }}>
-                    {getScoreLabel(score)}
-                  </span>
-                )}
-                <p style={{ color: '#93c5fd', margin: '16px 0 0 0', fontSize: '13px' }}>
-                  Based on your last assessment
-                </p>
-              </div>
+                    fontSize: 64,
+                    fontWeight: 900,
+                    lineHeight: 1
+                  }}
+                >
+                  {score === null ? '--' : `${score}%`}
+                </div>
+                <div style={{ marginTop: 14, color: COLORS.sky, fontSize: 13 }}>
+                  From your latest assessment submission
+                </div>
+              </section>
 
-              {/* Next Steps Card */}
-              <div style={{
-                backgroundColor: 'white',
-                borderRadius: '12px',
-                padding: '32px',
-                flex: '2',
-                minWidth: '280px',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-              }}>
-                <h3 style={{ color: '#1B3A6B', marginTop: 0, fontSize: '17px' }}>
+              <section
+                style={{
+                  backgroundColor: COLORS.card,
+                  borderRadius: 14,
+                  padding: 26,
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
+                }}
+              >
+                <div style={{ color: COLORS.navy, fontSize: 16, fontWeight: 800 }}>
                   Next Steps
-                </h3>
-                {score !== null && score < 80 && (
-                  <p style={{ color: '#444', marginBottom: '12px', fontSize: '14px' }}>
-                    ⚠️ Focus on capability gaps identified in your assessment.
-                  </p>
-                )}
-                <p style={{ color: '#444', marginBottom: '12px', fontSize: '14px' }}>
+                </div>
+
+                <div style={{ marginTop: 14, color: '#374151', fontSize: 14, lineHeight: 1.55 }}>
                   Review the{' '}
-                  <a
+                  <Link
                     href="/dashboard/report"
-                    style={{ color: '#1B3A6B', fontWeight: '600', textDecoration: 'underline' }}
+                    style={{
+                      color: COLORS.navy,
+                      fontWeight: 700,
+                      textDecoration: 'underline'
+                    }}
                   >
                     Reporting View
-                  </a>
-                  {' '}for a full category breakdown.
-                </p>
-                <p style={{ color: '#444', fontSize: '14px' }}>
-                  Schedule a follow-up with your leadership team to address priority gaps.
-                </p>
-              </div>
+                  </Link>{' '}
+                  for a full category breakdown.
+                </div>
+
+                <div style={{ marginTop: 10, color: '#374151', fontSize: 14, lineHeight: 1.55 }}>
+                  Schedule a follow-up with your leadership team
+                </div>
+              </section>
             </div>
 
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 18 }}>
               <button
+                type="button"
                 onClick={() => router.push('/assessment')}
                 style={{
-                  padding: '12px 24px',
+                  padding: '12px 18px',
                   backgroundColor: 'white',
-                  color: '#1B3A6B',
-                  border: '2px solid #1B3A6B',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  fontWeight: '600',
+                  color: COLORS.navy,
+                  border: `2px solid ${COLORS.navy}`,
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
                   cursor: 'pointer'
                 }}
               >
@@ -213,25 +274,26 @@ export default function DashboardPage() {
               </button>
 
               <button
+                type="button"
                 onClick={handleUpgrade}
                 disabled={upgrading}
                 style={{
-                  padding: '12px 24px',
-                  backgroundColor: upgrading ? '#aaa' : '#F5B800',
-                  color: '#1B3A6B',
+                  padding: '12px 18px',
+                  backgroundColor: upgrading ? '#d1d5db' : COLORS.gold,
+                  color: COLORS.navy,
                   border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '15px',
-                  fontWeight: '700',
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 900,
                   cursor: upgrading ? 'not-allowed' : 'pointer'
                 }}
               >
-                {upgrading ? 'Redirecting...' : '⭐ Upgrade to Bearing Pro'}
+                {upgrading ? 'Redirecting…' : 'Upgrade to Bearing Pro'}
               </button>
             </div>
           </>
         )}
-      </div>
+      </main>
     </div>
   );
 }
