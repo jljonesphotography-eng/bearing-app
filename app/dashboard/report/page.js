@@ -2,6 +2,14 @@
 
 import { useState } from 'react';
 
+const BG = '#faf9f6';
+const TEXT = '#1a1916';
+const MUTED = '#6B6A66';
+const NAVY = '#1B3A6B';
+const SURFACE = '#ffffff';
+const FONT_SANS =
+  '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+
 export default function ReportPage() {
   const [upgrading, setUpgrading] = useState(false);
   const [error, setError] = useState(null);
@@ -41,72 +49,89 @@ export default function ReportPage() {
   };
 
   return (
-    <div style={{
-      maxWidth: '800px',
-      margin: '60px auto',
-      padding: '40px',
-      fontFamily: 'sans-serif'
-    }}>
-
-      {/* Header */}
-      <h1 style={{ color: '#1B3A6B', fontSize: '32px', marginBottom: '8px' }}>
-        Capability Report
-      </h1>
-      <p style={{ color: '#666', fontSize: '16px', marginBottom: '40px' }}>
-        Unlock your full organizational intelligence report
-      </p>
-
-      {error && (
-        <div
-          role="alert"
-          style={{
-            backgroundColor: '#fff7ed',
-            border: '1px solid #fed7aa',
-            color: '#9a3412',
-            padding: '12px 14px',
-            borderRadius: '12px',
-            marginBottom: '18px'
-          }}
-        >
-          {error}
-        </div>
-      )}
-
-      {/* Upgrade Card */}
-      <div style={{
-        backgroundColor: '#fff',
-        border: '1px solid #e0e0e0',
-        borderRadius: '16px',
-        padding: '48px 40px',
-        textAlign: 'center',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.06)'
-      }}>
-        <h2 style={{ color: '#1B3A6B', fontSize: '24px', marginBottom: '16px' }}>
-          Your full report is ready
-        </h2>
-        <p style={{ color: '#666', fontSize: '15px', marginBottom: '32px', lineHeight: '1.6' }}>
-          Upgrade to Pro to access your detailed capability breakdown,
-          gap analysis, and recommended next steps.
+    <div
+      style={{
+        minHeight: '100vh',
+        backgroundColor: BG,
+        fontFamily: FONT_SANS,
+        color: TEXT
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 800,
+          margin: '0 auto',
+          padding: 40
+        }}
+      >
+        <h1 style={{ color: NAVY, fontSize: 32, marginBottom: 8, fontWeight: 700 }}>
+          Capability Report
+        </h1>
+        <p style={{ color: MUTED, fontSize: 16, marginBottom: 40 }}>
+          Unlock your full organizational intelligence report
         </p>
-        <button
-          onClick={handleUpgrade}
-          disabled={upgrading}
+
+        {error && (
+          <div
+            role="alert"
+            style={{
+              backgroundColor: SURFACE,
+              border: '1px solid rgba(217, 119, 6, 0.45)',
+              color: TEXT,
+              padding: '12px 14px',
+              borderRadius: 12,
+              marginBottom: 18
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        <div
           style={{
-            backgroundColor: '#1B3A6B',
-            color: '#FFD700',
-            padding: '16px 48px',
-            fontSize: '18px',
-            fontWeight: 'bold',
-            borderRadius: '10px',
-            cursor: upgrading ? 'not-allowed' : 'pointer',
-            border: 'none',
-            boxShadow: '0 4px 14px rgba(27,58,107,0.3)'
+            backgroundColor: SURFACE,
+            border: `1px solid rgba(27, 58, 107, 0.12)`,
+            borderRadius: 16,
+            padding: '48px 40px',
+            textAlign: 'center',
+            boxShadow: '0 1px 4px rgba(26,25,22,0.06)'
           }}
         >
-          {upgrading ? 'Redirecting…' : 'Upgrade to Pro'}
-        </button>
+          <h2 style={{ color: NAVY, fontSize: 24, marginBottom: 16, fontWeight: 700 }}>
+            Your full report is ready
+          </h2>
+          <p
+            style={{
+              color: MUTED,
+              fontSize: 15,
+              marginBottom: 32,
+              lineHeight: 1.6
+            }}
+          >
+            Upgrade to Pro to access your detailed capability breakdown, gap analysis, and
+            recommended next steps.
+          </p>
+          <button
+            onClick={handleUpgrade}
+            disabled={upgrading}
+            style={{
+              backgroundColor: NAVY,
+              color: '#ffffff',
+              padding: '16px 48px',
+              fontSize: 18,
+              fontWeight: 600,
+              borderRadius: 10,
+              cursor: upgrading ? 'not-allowed' : 'pointer',
+              border: 'none',
+              boxShadow: '0 4px 14px rgba(27,58,107,0.25)',
+              fontFamily: FONT_SANS,
+              opacity: upgrading ? 0.65 : 1
+            }}
+          >
+            {upgrading ? 'Redirecting…' : 'Upgrade to Pro'}
+          </button>
+        </div>
       </div>
-
     </div>
   );
 }

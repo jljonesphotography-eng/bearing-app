@@ -7,25 +7,28 @@ import { createClient } from '@supabase/supabase-js';
 
 const COLORS = {
   navy: '#1B3A6B',
-  sky: '#93c5fd',
-  bg: '#f0f4f8',
-  text: '#111827',
-  muted: '#6b7280',
-  card: '#ffffff',
-  gold: '#F5B800',
-  teal: '#0d9488',
-  amber: '#f59e0b'
+  bg: '#faf9f6',
+  text: '#1a1916',
+  muted: '#6B6A66',
+  surface: '#ffffff',
+  teal: '#0A5F63',
+  amber: '#D97706'
 };
+
+const FONT_SANS =
+  '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+const FONT_DISPLAY = '"Playfair Display", Georgia, serif';
+const FONT_MONO = '"IBM Plex Mono", ui-monospace, monospace';
 
 function verdictDisplay(verdict) {
   const v = String(verdict || '').toUpperCase().replace(/\s+/g, '_');
-  if (v === 'WELL_POSITIONED') return { label: 'Well positioned', bg: COLORS.teal, fg: '#ffffff' };
-  if (v === 'TRANSITION_ADVISED') return { label: 'Transition advised', bg: COLORS.amber, fg: '#1f2937' };
-  if (v === 'EXPOSED') return { label: 'Exposed', bg: COLORS.navy, fg: '#ffffff' };
+  if (v === 'WELL_POSITIONED') return { label: 'Well Positioned', color: COLORS.teal };
+  if (v === 'TRANSITION_ADVISED')
+    return { label: 'Transition Advised', color: COLORS.amber };
+  if (v === 'EXPOSED') return { label: 'Exposed', color: COLORS.navy };
   return {
     label: verdict ? String(verdict).replace(/_/g, ' ') : '—',
-    bg: '#6b7280',
-    fg: '#ffffff'
+    color: COLORS.muted
   };
 }
 
@@ -161,6 +164,9 @@ export default function DashboardPage() {
     (a) => a != null && String(a).trim() !== ''
   );
   const energyLabel = formatEnergyProfile(submission?.energy_profile);
+  const hasPrimary =
+    submission?.primary_finding != null &&
+    String(submission.primary_finding).trim() !== '';
 
   return (
     <div
@@ -168,8 +174,7 @@ export default function DashboardPage() {
         minHeight: '100vh',
         backgroundColor: COLORS.bg,
         color: COLORS.text,
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"'
+        fontFamily: FONT_SANS
       }}
     >
       <header
@@ -182,10 +187,12 @@ export default function DashboardPage() {
         }}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <div style={{ color: 'white', fontSize: 22, fontWeight: 800, letterSpacing: 0.2 }}>
+          <div style={{ color: '#ffffff', fontSize: 22, fontWeight: 700, letterSpacing: 0.02 }}>
             Bearing
           </div>
-          <div style={{ color: COLORS.sky, fontSize: 13 }}>Human Capital Intelligence</div>
+          <div style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13 }}>
+            Human Capability Intelligence
+          </div>
         </div>
 
         <button
@@ -193,13 +200,14 @@ export default function DashboardPage() {
           onClick={handleSignOut}
           style={{
             backgroundColor: 'transparent',
-            border: `1px solid ${COLORS.sky}`,
-            color: COLORS.sky,
+            border: '1px solid rgba(255,255,255,0.65)',
+            color: '#ffffff',
             padding: '9px 14px',
             borderRadius: 8,
             cursor: 'pointer',
             fontSize: 13,
-            fontWeight: 600
+            fontWeight: 600,
+            fontFamily: FONT_SANS
           }}
         >
           Sign Out
@@ -208,7 +216,7 @@ export default function DashboardPage() {
 
       <main style={{ padding: '36px 28px', maxWidth: 980, margin: '0 auto' }}>
         <div style={{ marginBottom: 22 }}>
-          <div style={{ color: COLORS.navy, fontSize: 22, fontWeight: 800 }}>Dashboard</div>
+          <div style={{ color: COLORS.navy, fontSize: 22, fontWeight: 700 }}>Dashboard</div>
           <div style={{ color: COLORS.muted, marginTop: 6, fontSize: 14 }}>
             Organizational Capability Overview
           </div>
@@ -218,9 +226,9 @@ export default function DashboardPage() {
           <div
             role="alert"
             style={{
-              backgroundColor: '#fff7ed',
-              border: '1px solid #fed7aa',
-              color: '#9a3412',
+              backgroundColor: COLORS.surface,
+              border: `1px solid ${COLORS.amber}`,
+              color: COLORS.text,
               padding: '12px 14px',
               borderRadius: 10,
               marginBottom: 18,
@@ -235,6 +243,31 @@ export default function DashboardPage() {
           <div style={{ color: COLORS.muted, fontSize: 14 }}>Loading your results…</div>
         ) : (
           <>
+            {hasPrimary && (
+              <section
+                style={{
+                  backgroundColor: COLORS.surface,
+                  border: `1px solid ${COLORS.navy}`,
+                  borderRadius: 14,
+                  padding: '24px 28px',
+                  marginBottom: 20,
+                  boxShadow: '0 1px 4px rgba(26,25,22,0.06)'
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontSize: 22,
+                    lineHeight: 1.45,
+                    color: COLORS.text,
+                    fontWeight: 500
+                  }}
+                >
+                  {String(submission.primary_finding).trim()}
+                </div>
+              </section>
+            )}
+
             <div
               style={{
                 display: 'grid',
@@ -245,79 +278,60 @@ export default function DashboardPage() {
             >
               <section
                 style={{
-                  backgroundColor: COLORS.navy,
+                  backgroundColor: COLORS.surface,
                   borderRadius: 14,
                   padding: 28,
-                  textAlign: 'center'
+                  textAlign: 'center',
+                  border: `1px solid rgba(27, 58, 107, 0.12)`,
+                  boxShadow: '0 1px 4px rgba(26,25,22,0.06)'
                 }}
               >
                 {submission?.verdict != null && String(submission.verdict).trim() !== '' && (
                   <div
                     style={{
-                      display: 'inline-block',
-                      marginBottom: 16,
-                      padding: '10px 18px',
-                      borderRadius: 999,
-                      backgroundColor: verdictStyle.bg,
-                      color: verdictStyle.fg,
-                      fontSize: 15,
-                      fontWeight: 800,
-                      letterSpacing: 0.02
+                      fontFamily: FONT_DISPLAY,
+                      fontSize: 30,
+                      fontWeight: 600,
+                      lineHeight: 1.2,
+                      color: verdictStyle.color,
+                      marginBottom: 18
                     }}
                   >
                     {verdictStyle.label}
                   </div>
                 )}
 
-                <div style={{ color: COLORS.sky, fontSize: 13, fontWeight: 700 }}>
-                  Overall Score
+                <div style={{ color: COLORS.muted, fontSize: 12, fontWeight: 600, letterSpacing: 0.04, textTransform: 'uppercase' }}>
+                  Overall score
                 </div>
                 <div
                   style={{
-                    marginTop: 10,
-                    color: 'white',
-                    fontSize: 64,
-                    fontWeight: 900,
-                    lineHeight: 1
+                    marginTop: 8,
+                    color: COLORS.text,
+                    fontSize: 56,
+                    fontWeight: 600,
+                    lineHeight: 1,
+                    fontFamily: FONT_MONO
                   }}
                 >
                   {score === null ? '--' : `${score}%`}
                 </div>
 
-                {submission?.primary_finding != null &&
-                  String(submission.primary_finding).trim() !== '' && (
-                    <blockquote
-                      style={{
-                        margin: '20px 0 0 0',
-                        padding: '14px 16px',
-                        borderLeft: `4px solid ${COLORS.sky}`,
-                        backgroundColor: 'rgba(255,255,255,0.08)',
-                        color: '#e0e7ff',
-                        fontSize: 14,
-                        fontStyle: 'italic',
-                        lineHeight: 1.5,
-                        textAlign: 'left',
-                        borderRadius: '0 10px 10px 0'
-                      }}
-                    >
-                      “{String(submission.primary_finding).trim()}”
-                    </blockquote>
-                  )}
-
-                <div style={{ marginTop: 14, color: COLORS.sky, fontSize: 13 }}>
+                <div style={{ marginTop: 16, color: COLORS.muted, fontSize: 13 }}>
                   From your latest assessment submission
                 </div>
               </section>
 
               <section
                 style={{
-                  backgroundColor: COLORS.card,
+                  backgroundColor: COLORS.surface,
                   borderRadius: 14,
                   padding: 26,
-                  boxShadow: '0 2px 10px rgba(0,0,0,0.06)'
+                  border: `1px solid rgba(27, 58, 107, 0.12)`,
+                  boxShadow: '0 1px 4px rgba(26,25,22,0.06)'
                 }}
               >
-                <div style={{ color: COLORS.navy, fontSize: 16, fontWeight: 800 }}>
+                <div style={{ color: COLORS.navy, fontSize: 16, fontWeight: 700 }}>
                   Next Steps
                 </div>
 
@@ -335,12 +349,13 @@ export default function DashboardPage() {
                   >
                     {submission?.zone != null && String(submission.zone).trim() !== '' && (
                       <span>
-                        <strong style={{ color: '#374151' }}>Zone:</strong> {String(submission.zone).trim()}
+                        <strong style={{ color: COLORS.text }}>Zone:</strong>{' '}
+                        {String(submission.zone).trim()}
                       </span>
                     )}
                     {energyLabel ? (
                       <span>
-                        <strong style={{ color: '#374151' }}>Energy:</strong> {energyLabel}
+                        <strong style={{ color: COLORS.text }}>Energy:</strong> {energyLabel}
                       </span>
                     ) : null}
                   </div>
@@ -351,7 +366,7 @@ export default function DashboardPage() {
                     style={{
                       margin: '16px 0 0 0',
                       paddingLeft: 22,
-                      color: '#374151',
+                      color: COLORS.text,
                       fontSize: 14,
                       lineHeight: 1.65
                     }}
@@ -364,13 +379,13 @@ export default function DashboardPage() {
                   </ol>
                 )}
 
-                <div style={{ marginTop: 14, color: '#374151', fontSize: 14, lineHeight: 1.55 }}>
+                <div style={{ marginTop: 14, color: COLORS.text, fontSize: 14, lineHeight: 1.55 }}>
                   Review the{' '}
                   <Link
                     href="/dashboard/report"
                     style={{
-                      color: COLORS.navy,
-                      fontWeight: 700,
+                      color: COLORS.teal,
+                      fontWeight: 600,
                       textDecoration: 'underline'
                     }}
                   >
@@ -379,7 +394,7 @@ export default function DashboardPage() {
                   for a full category breakdown.
                 </div>
 
-                <div style={{ marginTop: 10, color: '#374151', fontSize: 14, lineHeight: 1.55 }}>
+                <div style={{ marginTop: 10, color: COLORS.muted, fontSize: 14, lineHeight: 1.55 }}>
                   Schedule a follow-up with your leadership team
                 </div>
               </section>
@@ -391,13 +406,14 @@ export default function DashboardPage() {
                 onClick={() => router.push('/assessment')}
                 style={{
                   padding: '12px 18px',
-                  backgroundColor: 'white',
+                  backgroundColor: COLORS.surface,
                   color: COLORS.navy,
                   border: `2px solid ${COLORS.navy}`,
                   borderRadius: 10,
                   fontSize: 14,
-                  fontWeight: 700,
-                  cursor: 'pointer'
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: FONT_SANS
                 }}
               >
                 Retake Assessment
@@ -409,13 +425,14 @@ export default function DashboardPage() {
                 disabled={upgrading}
                 style={{
                   padding: '12px 18px',
-                  backgroundColor: upgrading ? '#d1d5db' : COLORS.gold,
-                  color: COLORS.navy,
+                  backgroundColor: upgrading ? COLORS.muted : COLORS.navy,
+                  color: '#ffffff',
                   border: 'none',
                   borderRadius: 10,
                   fontSize: 14,
-                  fontWeight: 900,
-                  cursor: upgrading ? 'not-allowed' : 'pointer'
+                  fontWeight: 600,
+                  cursor: upgrading ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT_SANS
                 }}
               >
                 {upgrading ? 'Redirecting…' : 'Upgrade to Bearing Pro'}

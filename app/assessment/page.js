@@ -5,9 +5,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const NAVY = '#1B3A6B';
-const SKY = '#93c5fd';
-const GOLD = '#F5B800';
-const BG = '#f0f4f8';
+const BG = '#faf9f6';
+const TEXT = '#1a1916';
+const MUTED = '#6B6A66';
+const SURFACE = '#ffffff';
+const USER_TINT = 'rgba(27, 58, 107, 0.09)';
+
+const FONT_SANS =
+  '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
 
 /** Must match server default in app/api/assess/route.js when messages is [] */
 const START_USER_MESSAGE =
@@ -296,6 +301,18 @@ export default function AssessmentPage() {
 
   const displayMessages = displayFromApiMessages(apiMessages);
 
+  const primaryBtn = {
+    padding: '12px 20px',
+    backgroundColor: NAVY,
+    color: '#ffffff',
+    border: 'none',
+    borderRadius: 12,
+    fontSize: 15,
+    fontWeight: 600,
+    fontFamily: FONT_SANS,
+    cursor: 'pointer'
+  };
+
   return (
     <div
       style={{
@@ -303,8 +320,8 @@ export default function AssessmentPage() {
         display: 'flex',
         flexDirection: 'column',
         backgroundColor: BG,
-        fontFamily:
-          'ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif'
+        fontFamily: FONT_SANS,
+        color: TEXT
       }}
     >
       <header
@@ -318,10 +335,10 @@ export default function AssessmentPage() {
         }}
       >
         <div>
-          <div style={{ color: 'white', fontSize: 20, fontWeight: 800 }}>
+          <div style={{ color: '#ffffff', fontSize: 20, fontWeight: 700 }}>
             Bearing
           </div>
-          <div style={{ color: SKY, fontSize: 12, marginTop: 2 }}>
+          <div style={{ color: 'rgba(255,255,255,0.88)', fontSize: 12, marginTop: 2 }}>
             Conversational assessment
           </div>
         </div>
@@ -342,9 +359,9 @@ export default function AssessmentPage() {
           <div
             role="alert"
             style={{
-              backgroundColor: '#fff7ed',
-              border: '1px solid #fed7aa',
-              color: '#9a3412',
+              backgroundColor: SURFACE,
+              border: '1px solid rgba(217, 119, 6, 0.45)',
+              color: TEXT,
               padding: '12px 14px',
               borderRadius: 10,
               marginBottom: 16,
@@ -375,11 +392,14 @@ export default function AssessmentPage() {
                   maxWidth: '85%',
                   padding: '12px 16px',
                   borderRadius: 14,
-                  backgroundColor: '#ffffff',
-                  color: '#111827',
+                  backgroundColor: isUser ? USER_TINT : SURFACE,
+                  color: TEXT,
                   fontSize: 15,
                   lineHeight: 1.5,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
+                  boxShadow: isUser
+                    ? 'none'
+                    : '0 1px 3px rgba(26,25,22,0.08)',
+                  borderLeft: isUser ? 'none' : `4px solid ${NAVY}`,
                   whiteSpace: 'pre-wrap',
                   wordBreak: 'break-word'
                 }}
@@ -402,13 +422,14 @@ export default function AssessmentPage() {
               style={{
                 padding: '12px 16px',
                 borderRadius: 14,
-                backgroundColor: '#ffffff',
+                backgroundColor: SURFACE,
                 color: NAVY,
                 fontSize: 14,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.08)'
+                borderLeft: `4px solid ${NAVY}`,
+                boxShadow: '0 1px 3px rgba(26,25,22,0.08)'
               }}
             >
-              <span style={{ opacity: 0.7 }}>Bearing is typing…</span>
+              <span style={{ color: MUTED }}>Bearing is typing…</span>
             </div>
           </div>
         )}
@@ -420,7 +441,7 @@ export default function AssessmentPage() {
         style={{
           padding: '12px 16px 20px',
           backgroundColor: BG,
-          borderTop: '1px solid #e5e7eb',
+          borderTop: '1px solid rgba(26, 25, 22, 0.08)',
           maxWidth: 720,
           width: '100%',
           margin: '0 auto',
@@ -436,16 +457,10 @@ export default function AssessmentPage() {
             style={{
               width: '100%',
               marginBottom: 12,
+              ...primaryBtn,
               padding: '14px 18px',
-              backgroundColor: GOLD,
-              color: NAVY,
-              border: 'none',
-              borderRadius: 12,
-              fontSize: 15,
-              fontWeight: 800,
               cursor: awaiting ? 'not-allowed' : 'pointer',
-              opacity: awaiting ? 0.55 : 1,
-              boxShadow: '0 2px 8px rgba(245, 184, 0, 0.35)'
+              opacity: awaiting ? 0.55 : 1
             }}
           >
             Get My Assessment
@@ -476,9 +491,11 @@ export default function AssessmentPage() {
               resize: 'none',
               padding: '12px 14px',
               borderRadius: 12,
-              border: '1px solid #d1d5db',
+              border: `1px solid rgba(27, 58, 107, 0.22)`,
               fontSize: 15,
-              fontFamily: 'inherit',
+              fontFamily: FONT_SANS,
+              color: TEXT,
+              backgroundColor: SURFACE,
               outline: 'none',
               boxSizing: 'border-box',
               minHeight: 48,
@@ -490,19 +507,13 @@ export default function AssessmentPage() {
             onClick={handleSend}
             disabled={awaiting || !started || !input.trim()}
             style={{
-              padding: '12px 20px',
-              backgroundColor: GOLD,
-              color: NAVY,
-              border: 'none',
-              borderRadius: 12,
-              fontSize: 15,
-              fontWeight: 800,
+              ...primaryBtn,
+              alignSelf: 'stretch',
               cursor:
                 awaiting || !started || !input.trim()
                   ? 'not-allowed'
                   : 'pointer',
-              opacity: awaiting || !started || !input.trim() ? 0.55 : 1,
-              alignSelf: 'stretch'
+              opacity: awaiting || !started || !input.trim() ? 0.55 : 1
             }}
           >
             Send
