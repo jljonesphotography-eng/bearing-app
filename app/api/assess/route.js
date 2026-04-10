@@ -127,7 +127,7 @@ Output the tags even if the conversation feels incomplete. Never skip this step.
 const MODEL = 'claude-sonnet-4-20250514';
 
 /** 8th+ exchange: incoming history length before this turn's assistant reply */
-const MIN_MESSAGES_FOR_RESULT_RETRY = 14;
+const MIN_MESSAGES_FOR_RESULT_RETRY = 16;
 
 const FOLLOW_UP_USER_MESSAGE =
   'Please now output your structured assessment result in the required format.';
