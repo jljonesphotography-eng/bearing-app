@@ -394,9 +394,6 @@ export default function DashboardPage() {
                   for a full category breakdown.
                 </div>
 
-                <div style={{ marginTop: 10, color: COLORS.muted, fontSize: 14, lineHeight: 1.55 }}>
-                  Schedule a follow-up with your leadership team
-                </div>
               </section>
             </div>
 
