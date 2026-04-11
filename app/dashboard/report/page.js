@@ -1,46 +1,433 @@
 'use client';
 
-import { useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
 
-const BG = '#faf9f6';
+const DEEP_DARK = '#0a0a12';
+const WARM_WHITE = '#faf9f6';
 const TEXT = '#1a1916';
 const MUTED = '#6B6A66';
+const LABEL_MUTED = '#6b6860';
 const NAVY = '#1B3A6B';
+const TEAL = '#0D7377';
+const AMBER = '#D97706';
 const SURFACE = '#ffffff';
-const FONT_SANS =
-  '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+const ZONE_MUTED = '#d4d1c8';
+const DOT_NAVY_MUTED = '#5c6b7a';
+
+const FONT_SANS = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
+const FONT_DISPLAY = '"Playfair Display", Georgia, serif';
+
+const ZONE_SEGMENTS = [
+  { n: 1, label: 'ZONE 1 — WELL-POSITIONED' },
+  { n: 2, label: 'ZONE 2 — BUILDING' },
+  { n: 3, label: 'ZONE 3 — WATCH' },
+  { n: 4, label: 'ZONE 4 — TRANSITION' }
+];
+
+const DIMENSIONS = [
+  { name: 'JUDGMENT DEPTH', dot: TEAL },
+  { name: 'RELATIONAL INTELLIGENCE', dot: TEAL },
+  { name: 'SYNTHESIS CAPACITY', dot: AMBER },
+  { name: 'CREATIVE ORIGINALITY', dot: DOT_NAVY_MUTED },
+  { name: 'ADAPTIVE EXECUTION', dot: DOT_NAVY_MUTED }
+];
+
+function verdictColor(verdict) {
+  const v = String(verdict || '')
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+  if (v === 'WELL_POSITIONED') return TEAL;
+  if (v === 'TRANSITION_ADVISED') return AMBER;
+  if (v === 'EXPOSED') return NAVY;
+  return MUTED;
+}
+
+function verdictDisplayWord(verdict) {
+  const v = String(verdict || '')
+    .toUpperCase()
+    .replace(/\s+/g, '_');
+  if (v === 'WELL_POSITIONED') return 'WELL-POSITIONED';
+  if (v === 'TRANSITION_ADVISED') return 'TRANSITION ADVISED';
+  if (v === 'EXPOSED') return 'EXPOSED';
+  return verdict ? String(verdict).replace(/_/g, '-') : '—';
+}
+
+function parseZoneNumber(zone) {
+  const m = String(zone || '').match(/[1-4]/);
+  return m ? parseInt(m[0], 10) : null;
+}
+
+function formatEnergy(s) {
+  if (s == null || s === '') return '—';
+  return String(s).replace(/_/g, ' ');
+}
+
+function hasFullReportAccess(user) {
+  if (process.env.NEXT_PUBLIC_REPORT_GATE_BYPASS === 'true') return true;
+  return user?.user_metadata?.bearing_report_unlocked === true;
+}
+
+function labelStyle() {
+  return {
+    fontSize: 11,
+    fontFamily: FONT_SANS,
+    letterSpacing: '0.14em',
+    textTransform: 'uppercase',
+    fontWeight: 600,
+    color: LABEL_MUTED,
+    marginBottom: 10
+  };
+}
+
+function Section1VerdictFull({ submission, vc }) {
+  return (
+    <section
+      style={{
+        backgroundColor: DEEP_DARK,
+        padding: '56px 24px 64px',
+        textAlign: 'center'
+      }}
+    >
+      <h1
+        className="bearing-report-verdict-word"
+        style={{
+          fontFamily: FONT_DISPLAY,
+          fontSize: 48,
+          fontWeight: 700,
+          color: vc,
+          margin: '0 0 24px',
+          lineHeight: 1.1
+        }}
+      >
+        {verdictDisplayWord(submission.verdict)}
+      </h1>
+      {submission.primary_finding ? (
+        <p
+          className="bearing-report-verdict-sentence"
+          style={{
+            fontFamily: FONT_SANS,
+            fontSize: 17,
+            lineHeight: 1.55,
+            color: 'rgba(255,255,255,0.88)',
+            maxWidth: 560,
+            margin: '0 auto 36px'
+          }}
+        >
+          {String(submission.primary_finding).trim()}
+        </p>
+      ) : null}
+
+      <div style={{ maxWidth: 280, margin: '0 auto' }}>
+        <svg width="280" height="72" viewBox="0 0 280 72" aria-hidden>
+          <path
+            d="M 20 52 A 120 120 0 0 1 260 52"
+            fill="none"
+            stroke={vc}
+            strokeWidth="6"
+            strokeLinecap="round"
+            pathLength="100"
+            className="bearing-report-confidence-arc"
+          />
+        </svg>
+      </div>
+    </section>
+  );
+}
+
+function ReportSections2Through7({ submission, zoneNum }) {
+  return (
+    <div style={{ backgroundColor: WARM_WHITE, padding: '40px 20px 80px' }}>
+      <div style={{ maxWidth: 880, margin: '0 auto' }}>
+        <p style={{ ...labelStyle(), marginBottom: 12 }}>CAPABILITY FINDING</p>
+        <div
+          style={{
+            border: `2px solid ${NAVY}`,
+            backgroundColor: SURFACE,
+            borderRadius: 12,
+            padding: '24px 28px',
+            marginBottom: 48
+          }}
+        >
+          <p
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontSize: 20,
+              lineHeight: 1.5,
+              color: TEXT,
+              margin: 0
+            }}
+          >
+            {String(submission.primary_finding || '—').trim()}
+          </p>
+        </div>
+
+        <p style={{ ...labelStyle(), marginBottom: 12 }}>CAPABILITY ZONE</p>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 4,
+            marginBottom: 48
+          }}
+        >
+          {ZONE_SEGMENTS.map((z) => {
+            const active = zoneNum === z.n;
+            return (
+              <div
+                key={z.n}
+                style={{
+                  flex: '1 1 120px',
+                  minHeight: 48,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '10px 8px',
+                  backgroundColor: active ? TEAL : ZONE_MUTED,
+                  color: active ? '#ffffff' : TEXT,
+                  fontSize: 11,
+                  fontFamily: FONT_SANS,
+                  fontWeight: 600,
+                  letterSpacing: '0.06em',
+                  textTransform: 'uppercase',
+                  textAlign: 'center',
+                  borderRadius: 6
+                }}
+              >
+                {z.label}
+              </div>
+            );
+          })}
+        </div>
+
+        <p style={{ ...labelStyle(), marginBottom: 16 }}>DIMENSION BREAKDOWN</p>
+        <div style={{ marginBottom: 48 }}>
+          {DIMENSIONS.map((dim) => (
+            <div
+              key={dim.name}
+              style={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 12,
+                padding: '14px 0',
+                borderBottom: '1px solid rgba(26,25,22,0.08)'
+              }}
+            >
+              <span
+                style={{
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  backgroundColor: dim.dot,
+                  marginTop: 4,
+                  flexShrink: 0
+                }}
+              />
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    fontFamily: FONT_SANS,
+                    letterSpacing: '0.08em',
+                    fontWeight: 600,
+                    color: TEXT,
+                    marginBottom: 6
+                  }}
+                >
+                  {dim.name}
+                </div>
+                <div style={{ fontSize: 14, fontFamily: FONT_SANS, color: MUTED }}>
+                  Observed in assessment.
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ ...labelStyle(), marginBottom: 12 }}>ENGAGEMENT PROFILE</p>
+        <div
+          style={{
+            borderLeft: `4px solid ${TEAL}`,
+            backgroundColor: SURFACE,
+            padding: '20px 24px',
+            marginBottom: 48,
+            borderRadius: '0 10px 10px 0',
+            boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
+          }}
+        >
+          <div
+            style={{
+              fontSize: 16,
+              fontFamily: FONT_SANS,
+              fontWeight: 700,
+              color: TEXT,
+              marginBottom: 10
+            }}
+          >
+            {formatEnergy(submission.energy_profile)}
+          </div>
+          <p style={{ fontSize: 14, fontFamily: FONT_SANS, color: MUTED, margin: 0, lineHeight: 1.55 }}>
+            Your action map reflects your capability and your energy for using it.
+          </p>
+        </div>
+
+        <p style={{ ...labelStyle(), marginBottom: 16 }}>YOUR ACTION MAP</p>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: 16,
+            marginBottom: 48
+          }}
+        >
+          {[submission.action_1, submission.action_2, submission.action_3].map((act, i) => (
+            <div
+              key={i}
+              style={{
+                backgroundColor: WARM_WHITE,
+                border: `1px solid ${NAVY}`,
+                borderRadius: 12,
+                padding: '20px 18px',
+                minHeight: 140
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  fontFamily: FONT_SANS,
+                  letterSpacing: '0.12em',
+                  fontWeight: 700,
+                  color: TEAL,
+                  marginBottom: 12
+                }}
+              >
+                ACTION {i + 1}
+              </div>
+              <p style={{ fontSize: 14, fontFamily: FONT_SANS, color: TEXT, margin: '0 0 12px', lineHeight: 1.5 }}>
+                {act ? String(act).trim() : '—'}
+              </p>
+              <p style={{ fontSize: 12, fontFamily: FONT_SANS, color: MUTED, margin: 0, fontStyle: 'italic' }}>
+                Start this week.
+              </p>
+            </div>
+          ))}
+        </div>
+
+        <section
+          style={{
+            backgroundColor: NAVY,
+            borderRadius: 14,
+            padding: '36px 28px',
+            textAlign: 'center'
+          }}
+        >
+          <h2
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontSize: 20,
+              fontWeight: 600,
+              color: '#ffffff',
+              margin: '0 0 12px'
+            }}
+          >
+            Your Capability Certificate
+          </h2>
+          <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: 'rgba(255,255,255,0.9)', margin: '0 0 24px' }}>
+            Share what the assessment found — as a professional record.
+          </p>
+          <button
+            type="button"
+            style={{
+              backgroundColor: TEAL,
+              color: '#ffffff',
+              border: 'none',
+              padding: '12px 28px',
+              borderRadius: 8,
+              fontFamily: FONT_SANS,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            View Certificate
+          </button>
+        </section>
+      </div>
+    </div>
+  );
+}
 
 export default function ReportPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(null);
+  const [submission, setSubmission] = useState(null);
   const [upgrading, setUpgrading] = useState(false);
   const [error, setError] = useState(null);
+
+  const supabase = useMemo(
+    () =>
+      createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      ),
+    []
+  );
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const { data: auth, error: authErr } = await supabase.auth.getUser();
+      if (authErr) throw authErr;
+      const u = auth?.user;
+      if (!u) {
+        router.push('/login');
+        return;
+      }
+      setUser(u);
+
+      const { data, error: qErr } = await supabase
+        .from('assessment_submissions')
+        .select(
+          'verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, created_at'
+        )
+        .eq('user_id', u.id)
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (qErr) throw qErr;
+      const row = Array.isArray(data) && data.length > 0 ? data[0] : null;
+      setSubmission(row);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load report.');
+    } finally {
+      setLoading(false);
+    }
+  }, [router, supabase]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const handleUpgrade = async () => {
     setError(null);
     setUpgrading(true);
-
     try {
       const priceId = process.env.NEXT_PUBLIC_STRIPE_PRICE_ID;
-      if (!priceId) {
-        throw new Error('Missing NEXT_PUBLIC_STRIPE_PRICE_ID.');
-      }
-
+      if (!priceId) throw new Error('Missing NEXT_PUBLIC_STRIPE_PRICE_ID.');
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ priceId })
       });
-
       const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data?.error || 'Checkout request failed.');
-      }
-
+      if (!res.ok) throw new Error(data?.error || 'Checkout request failed.');
       if (data?.url) {
         window.location.assign(data.url);
         return;
       }
-
       throw new Error('Checkout session did not return a redirect URL.');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upgrade failed.');
@@ -48,90 +435,157 @@ export default function ReportPage() {
     }
   };
 
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        backgroundColor: BG,
-        fontFamily: FONT_SANS,
-        color: TEXT
-      }}
-    >
+  const unlocked = user && hasFullReportAccess(user);
+  const vc = verdictColor(submission?.verdict);
+  const zoneNum = parseZoneNumber(submission?.zone);
+
+  if (loading) {
+    return (
       <div
         style={{
-          maxWidth: 800,
-          margin: '0 auto',
-          padding: 40
+          minHeight: '100vh',
+          backgroundColor: WARM_WHITE,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: FONT_SANS,
+          color: MUTED
         }}
       >
-        <h1 style={{ color: NAVY, fontSize: 32, marginBottom: 8, fontWeight: 700 }}>
-          Capability Report
-        </h1>
-        <p style={{ color: MUTED, fontSize: 16, marginBottom: 40 }}>
-          Unlock your full organizational intelligence report
-        </p>
+        Loading…
+      </div>
+    );
+  }
 
-        {error && (
+  if (!submission) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          backgroundColor: WARM_WHITE,
+          padding: 40,
+          fontFamily: FONT_SANS,
+          color: TEXT,
+          textAlign: 'center',
+          maxWidth: 520,
+          margin: '0 auto'
+        }}
+      >
+        <p style={{ marginBottom: 20 }}>No assessment found yet.</p>
+        <Link href="/assessment" style={{ color: TEAL, fontWeight: 600 }}>
+          Take the assessment
+        </Link>
+      </div>
+    );
+  }
+
+  if (!unlocked) {
+    return (
+      <div style={{ minHeight: '100vh', backgroundColor: DEEP_DARK, fontFamily: FONT_SANS }}>
+        <div style={{ padding: '48px 24px 40px', textAlign: 'center' }}>
+          <h1
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontSize: 48,
+              fontWeight: 700,
+              color: vc,
+              margin: 0,
+              lineHeight: 1.1
+            }}
+          >
+            {verdictDisplayWord(submission.verdict)}
+          </h1>
+        </div>
+
+        <div style={{ position: 'relative', backgroundColor: WARM_WHITE, minHeight: '72vh' }}>
           <div
-            role="alert"
             style={{
-              backgroundColor: SURFACE,
-              border: '1px solid rgba(217, 119, 6, 0.45)',
-              color: TEXT,
-              padding: '12px 14px',
-              borderRadius: 12,
-              marginBottom: 18
+              filter: 'blur(11px)',
+              opacity: 0.88,
+              pointerEvents: 'none',
+              userSelect: 'none'
             }}
           >
-            {error}
+            <ReportSections2Through7 submission={submission} zoneNum={zoneNum} />
           </div>
-        )}
 
-        <div
-          style={{
-            backgroundColor: SURFACE,
-            border: `1px solid rgba(27, 58, 107, 0.12)`,
-            borderRadius: 16,
-            padding: '48px 40px',
-            textAlign: 'center',
-            boxShadow: '0 1px 4px rgba(26,25,22,0.06)'
-          }}
-        >
-          <h2 style={{ color: NAVY, fontSize: 24, marginBottom: 16, fontWeight: 700 }}>
-            Your full report is ready
-          </h2>
-          <p
+          <div
             style={{
-              color: MUTED,
-              fontSize: 15,
-              marginBottom: 32,
-              lineHeight: 1.6
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: '10%',
+              display: 'flex',
+              justifyContent: 'center',
+              padding: '0 20px',
+              pointerEvents: 'auto',
+              zIndex: 2
             }}
           >
-            Upgrade to Pro to access your detailed capability breakdown, gap analysis, and
-            recommended next steps.
-          </p>
-          <button
-            onClick={handleUpgrade}
-            disabled={upgrading}
-            style={{
-              backgroundColor: NAVY,
-              color: '#ffffff',
-              padding: '16px 48px',
-              fontSize: 18,
-              fontWeight: 600,
-              borderRadius: 10,
-              cursor: upgrading ? 'not-allowed' : 'pointer',
-              border: 'none',
-              boxShadow: '0 4px 14px rgba(27,58,107,0.25)',
-              fontFamily: FONT_SANS,
-              opacity: upgrading ? 0.65 : 1
-            }}
-          >
-            {upgrading ? 'Redirecting…' : 'Upgrade to Pro'}
-          </button>
+            <div
+              style={{
+                backgroundColor: SURFACE,
+                border: `1px solid rgba(27, 58, 107, 0.2)`,
+                borderRadius: 16,
+                padding: '40px 32px',
+                maxWidth: 420,
+                width: '100%',
+                textAlign: 'center',
+                boxShadow: '0 12px 40px rgba(10, 10, 18, 0.25)'
+              }}
+            >
+              <h2 style={{ color: NAVY, fontSize: 22, fontWeight: 700, margin: '0 0 12px' }}>
+                Unlock your full report
+              </h2>
+              <p style={{ color: MUTED, fontSize: 15, lineHeight: 1.55, margin: '0 0 24px' }}>
+                Complete checkout to see your full capability report, action map, and certificate options.
+              </p>
+              {error && <p style={{ color: AMBER, fontSize: 14, marginBottom: 16 }}>{error}</p>}
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                disabled={upgrading}
+                style={{
+                  width: '100%',
+                  padding: '14px 20px',
+                  backgroundColor: upgrading ? MUTED : NAVY,
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: 10,
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: upgrading ? 'not-allowed' : 'pointer',
+                  fontFamily: FONT_SANS
+                }}
+              >
+                {upgrading ? 'Redirecting…' : 'Continue to checkout'}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: WARM_WHITE, fontFamily: FONT_SANS, color: TEXT }}>
+      {error && (
+        <div
+          role="alert"
+          style={{
+            backgroundColor: '#fff7ed',
+            borderBottom: '1px solid rgba(217, 119, 6, 0.35)',
+            color: TEXT,
+            padding: '12px 20px',
+            textAlign: 'center',
+            fontSize: 14
+          }}
+        >
+          {error}
+        </div>
+      )}
+      <Section1VerdictFull submission={submission} vc={vc} />
+      <ReportSections2Through7 submission={submission} zoneNum={zoneNum} />
     </div>
   );
 }
