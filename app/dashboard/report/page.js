@@ -11,6 +11,7 @@ const TEXT = '#1a1916';
 const MUTED = '#6B6A66';
 const LABEL_MUTED = '#6b6860';
 const NAVY = '#1B3A6B';
+const GROUNDWORK_TEAL = '#0A5F63';
 const TEAL = '#0D7377';
 const AMBER = '#D97706';
 const SURFACE = '#ffffff';
@@ -400,7 +401,60 @@ function AiCollaborationGuideSection({ verdict, primary_finding, zone, energy_pr
   );
 }
 
-function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide }) {
+function ReportCertificatePromo() {
+  return (
+    <section
+      style={{
+        backgroundColor: NAVY,
+        borderRadius: 14,
+        padding: '36px 28px',
+        textAlign: 'center',
+        maxWidth: 880,
+        margin: '0 auto'
+      }}
+    >
+      <h2
+        style={{
+          fontFamily: FONT_DISPLAY,
+          fontSize: 20,
+          fontWeight: 600,
+          color: '#ffffff',
+          margin: '0 0 12px'
+        }}
+      >
+        Your Capability Certificate
+      </h2>
+      <p
+        style={{
+          fontFamily: FONT_SANS,
+          fontSize: 14,
+          color: 'rgba(255,255,255,0.9)',
+          margin: '0 0 24px'
+        }}
+      >
+        Share what the assessment found — as a professional record.
+      </p>
+      <Link
+        href="/dashboard/certificate"
+        style={{
+          display: 'inline-block',
+          backgroundColor: GROUNDWORK_TEAL,
+          color: '#ffffff',
+          padding: '12px 28px',
+          borderRadius: 8,
+          fontFamily: FONT_SANS,
+          fontSize: 15,
+          fontWeight: 600,
+          textDecoration: 'none'
+        }}
+      >
+        View Your Certificate
+      </Link>
+    </section>
+  );
+}
+
+function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide, includeCertificate = true }) {
   return (
     <div style={{ backgroundColor: WARM_WHITE, padding: '40px 20px 80px' }}>
       <div style={{ maxWidth: 880, margin: '0 auto' }}>
@@ -587,45 +641,7 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
           />
         ) : null}
 
-        <section
-          style={{
-            backgroundColor: NAVY,
-            borderRadius: 14,
-            padding: '36px 28px',
-            textAlign: 'center'
-          }}
-        >
-          <h2
-            style={{
-              fontFamily: FONT_DISPLAY,
-              fontSize: 20,
-              fontWeight: 600,
-              color: '#ffffff',
-              margin: '0 0 12px'
-            }}
-          >
-            Your Capability Certificate
-          </h2>
-          <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: 'rgba(255,255,255,0.9)', margin: '0 0 24px' }}>
-            Share what the assessment found — as a professional record.
-          </p>
-          <button
-            type="button"
-            style={{
-              backgroundColor: TEAL,
-              color: '#ffffff',
-              border: 'none',
-              padding: '12px 28px',
-              borderRadius: 8,
-              fontFamily: FONT_SANS,
-              fontSize: 15,
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            View Certificate
-          </button>
-        </section>
+        {includeCertificate ? <ReportCertificatePromo /> : null}
       </div>
     </div>
   );
@@ -779,7 +795,12 @@ export default function ReportPage() {
               userSelect: 'none'
             }}
           >
-            <ReportSections2Through7 submission={submission} zoneNum={zoneNum} showAiCollaborationGuide={false} />
+            <ReportSections2Through7
+              submission={submission}
+              zoneNum={zoneNum}
+              showAiCollaborationGuide={false}
+              includeCertificate={false}
+            />
           </div>
 
           <div
@@ -834,6 +855,17 @@ export default function ReportPage() {
                 {upgrading ? 'Redirecting…' : 'Continue to checkout'}
               </button>
             </div>
+          </div>
+
+          <div
+            style={{
+              position: 'relative',
+              zIndex: 3,
+              pointerEvents: 'auto',
+              padding: '32px 20px 48px'
+            }}
+          >
+            <ReportCertificatePromo />
           </div>
         </div>
       </div>

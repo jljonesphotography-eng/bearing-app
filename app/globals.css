@@ -65,3 +65,9 @@ body {
   animation: bearing-report-sentence-in 0.6s ease forwards;
   animation-delay: 0.5s;
 }
+
+@media print {
+  .certificate-hide-print {
+    display: none !important;
+  }
+}
