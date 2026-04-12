@@ -18,6 +18,9 @@ const FONT_SANS =
 const START_USER_MESSAGE =
   'Please begin the Bearing conversational assessment.';
 
+/** System prompt closes the delivered assessment with this sentence — required before "Get My Assessment". */
+const ASSESSMENT_CLOSING_PHRASE = 'What you do with that is yours.';
+
 function stripAssessmentTags(text) {
   if (!text) return '';
   return text
@@ -180,7 +183,8 @@ export default function AssessmentPage() {
       }
 
       if (typeof window !== 'undefined') {
-        window.location.href = '/dashboard';
+        console.log('Navigating to dashboard');
+        window.location.replace('/dashboard');
       }
     },
     [router, supabase]
@@ -271,35 +275,25 @@ export default function AssessmentPage() {
     }
   };
 
-  const userTypedCount = apiMessages.filter(
-    (m) => m.role === 'user' && m.content !== START_USER_MESSAGE
-  ).length;
-  const lastMessage = apiMessages.length > 0 ? apiMessages[apiMessages.length - 1] : null;
-  const lastAssistantText =
-    lastMessage?.role === 'assistant' && typeof lastMessage.content === 'string'
-      ? lastMessage.content
-      : '';
-  /** START + intro assistant + 7×(user answer + assistant) = 16 messages once Q7 reply exists. */
-  const hasFullConversationTurns =
-    apiMessages.length >= 16 && userTypedCount >= 7;
-  const hasFinalSynthesisCue =
-    /WELL_POSITIONED|TRANSITION_ADVISED|EXPOSED|\bverdict\b|\baction\b/i.test(
-      lastAssistantText
-    );
-  const reachedFinalSynthesis = hasFullConversationTurns || hasFinalSynthesisCue;
+  let lastAssistantContent = '';
+  for (let i = apiMessages.length - 1; i >= 0; i--) {
+    const m = apiMessages[i];
+    if (m?.role === 'assistant' && typeof m.content === 'string') {
+      lastAssistantContent = m.content;
+      break;
+    }
+  }
+  const hasAssessmentClosingPhrase = lastAssistantContent.includes(
+    ASSESSMENT_CLOSING_PHRASE
+  );
 
-  /** After Q7 synthesis (or keyword cue); hidden while a normal reply is loading, visible while saving via extract. */
+  /** Only after Bearing's closing line from the system prompt (full assessment delivered). */
   const showGetMyAssessment =
-    started &&
-    userTypedCount >= 7 &&
-    lastMessage?.role === 'assistant' &&
-    (!awaiting || savingAssessment) &&
-    reachedFinalSynthesis;
+    started && hasAssessmentClosingPhrase && (!awaiting || savingAssessment);
 
   const handleGetMyAssessment = async () => {
     if (!started || awaiting || apiMessages.length === 0) return;
-    if (apiMessages[apiMessages.length - 1]?.role !== 'assistant') return;
-    if (!reachedFinalSynthesis) return;
+    if (!hasAssessmentClosingPhrase) return;
 
     setError(null);
     setSavingAssessment(true);
