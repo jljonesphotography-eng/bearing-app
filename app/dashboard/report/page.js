@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const DEEP_DARK = '#0a0a12';
@@ -83,6 +83,95 @@ function labelStyle() {
   };
 }
 
+/** 240° arc from ~7 o'clock to ~5 o'clock (CCW through top), center (70,78), r=50 */
+const GAUGE_CX = 70;
+const GAUGE_CY = 78;
+const GAUGE_R = 50;
+
+function capabilityArcPathD() {
+  const t1 = (150 * Math.PI) / 180;
+  const t2 = (30 * Math.PI) / 180;
+  const sx = GAUGE_CX + GAUGE_R * Math.cos(t1);
+  const sy = GAUGE_CY - GAUGE_R * Math.sin(t1);
+  const ex = GAUGE_CX + GAUGE_R * Math.cos(t2);
+  const ey = GAUGE_CY - GAUGE_R * Math.sin(t2);
+  return `M ${sx} ${sy} A ${GAUGE_R} ${GAUGE_R} 0 1 1 ${ex} ${ey}`;
+}
+
+function CapabilityConfidenceGauge({ vc }) {
+  const fillRef = useRef(null);
+  const animatedRef = useRef(false);
+  const pathD = useMemo(() => capabilityArcPathD(), []);
+
+  useLayoutEffect(() => {
+    const path = fillRef.current;
+    if (!path || animatedRef.current) return;
+    animatedRef.current = true;
+    const len = path.getTotalLength();
+    path.style.strokeDasharray = String(len);
+    path.style.strokeDashoffset = String(len);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        path.style.transition = 'stroke-dashoffset 1.2s ease-out';
+        path.style.strokeDashoffset = String(len * (1 - 0.78));
+      });
+    });
+  }, []);
+
+  return (
+    <svg
+      width="140"
+      height="100"
+      viewBox="0 0 140 100"
+      style={{ display: 'block', margin: '0 auto' }}
+      aria-hidden
+    >
+      <path
+        d={pathD}
+        fill="none"
+        stroke="rgba(255,255,255,0.15)"
+        strokeWidth={8}
+        strokeLinecap="round"
+      />
+      <path
+        ref={fillRef}
+        d={pathD}
+        fill="none"
+        stroke={vc}
+        strokeWidth={8}
+        strokeLinecap="round"
+      />
+      <text
+        x={GAUGE_CX}
+        y={44}
+        textAnchor="middle"
+        style={{
+          fontFamily: FONT_MONO,
+          fontSize: 24,
+          fill: '#ffffff'
+        }}
+      >
+        78%
+      </text>
+      <text
+        x={GAUGE_CX}
+        y={64}
+        textAnchor="middle"
+        style={{
+          fontFamily: FONT_SANS,
+          fontSize: 10,
+          fontWeight: 600,
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          fill: 'rgba(255,255,255,0.6)'
+        }}
+      >
+        CAPABILITY CONFIDENCE
+      </text>
+    </svg>
+  );
+}
+
 function Section1VerdictFull({ submission, vc }) {
   return (
     <section
@@ -125,63 +214,11 @@ function Section1VerdictFull({ submission, vc }) {
         style={{
           maxWidth: 560,
           width: '100%',
-          margin: '40px auto',
+          margin: '32px auto 40px',
           textAlign: 'center'
         }}
-        aria-hidden
       >
-        <p
-          style={{
-            fontFamily: FONT_SANS,
-            fontSize: 11,
-            letterSpacing: '0.14em',
-            fontWeight: 600,
-            textTransform: 'uppercase',
-            color: 'rgba(255,255,255,0.6)',
-            margin: '0 0 10px'
-          }}
-        >
-          CAPABILITY CONFIDENCE
-        </p>
-        <div style={{ width: '100%', textAlign: 'left' }}>
-          <div
-            style={{
-              width: '75%',
-              display: 'flex',
-              justifyContent: 'flex-end',
-              marginBottom: 6
-            }}
-          >
-            <span
-              style={{
-                fontFamily: FONT_MONO,
-                fontSize: 14,
-                color: vc,
-                lineHeight: 1
-              }}
-            >
-              75%
-            </span>
-          </div>
-          <div
-            style={{
-              height: 16,
-              width: '100%',
-              borderRadius: 9999,
-              backgroundColor: 'rgba(255,255,255,0.2)',
-              overflow: 'hidden'
-            }}
-          >
-            <div
-              style={{
-                height: '100%',
-                width: '75%',
-                backgroundColor: vc,
-                borderRadius: 9999
-              }}
-            />
-          </div>
-        </div>
+        <CapabilityConfidenceGauge vc={vc} />
       </div>
     </section>
   );
