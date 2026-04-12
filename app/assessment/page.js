@@ -179,11 +179,9 @@ export default function AssessmentPage() {
         throw new Error(insertError.message || String(insertError));
       }
 
-      // Defer navigation so it isn't lost when the caller's `finally` updates state
-      // (setSavingAssessment / setAwaiting) in the same turn as the save completing.
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 0);
+      if (typeof window !== 'undefined') {
+        window.location.href = '/dashboard';
+      }
     },
     [router, supabase]
   );
@@ -277,16 +275,31 @@ export default function AssessmentPage() {
     (m) => m.role === 'user' && m.content !== START_USER_MESSAGE
   ).length;
   const lastMessage = apiMessages.length > 0 ? apiMessages[apiMessages.length - 1] : null;
-  /** After Q7 synthesis; hidden while a normal reply is loading, but stays visible while saving via extract (`savingAssessment`). */
+  const lastAssistantText =
+    lastMessage?.role === 'assistant' && typeof lastMessage.content === 'string'
+      ? lastMessage.content
+      : '';
+  /** START + intro assistant + 7×(user answer + assistant) = 16 messages once Q7 reply exists. */
+  const hasFullConversationTurns =
+    apiMessages.length >= 16 && userTypedCount >= 7;
+  const hasFinalSynthesisCue =
+    /WELL_POSITIONED|TRANSITION_ADVISED|EXPOSED|\bverdict\b|\baction\b/i.test(
+      lastAssistantText
+    );
+  const reachedFinalSynthesis = hasFullConversationTurns || hasFinalSynthesisCue;
+
+  /** After Q7 synthesis (or keyword cue); hidden while a normal reply is loading, visible while saving via extract. */
   const showGetMyAssessment =
     started &&
     userTypedCount >= 7 &&
     lastMessage?.role === 'assistant' &&
-    (!awaiting || savingAssessment);
+    (!awaiting || savingAssessment) &&
+    reachedFinalSynthesis;
 
   const handleGetMyAssessment = async () => {
     if (!started || awaiting || apiMessages.length === 0) return;
     if (apiMessages[apiMessages.length - 1]?.role !== 'assistant') return;
+    if (!reachedFinalSynthesis) return;
 
     setError(null);
     setSavingAssessment(true);
