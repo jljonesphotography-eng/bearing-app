@@ -86,6 +86,7 @@ AFTER ALL SEVEN QUESTIONS — INTERNAL SYNTHESIS
 Before producing any output, synthesise internally:
 What was the dominant capability pattern? Which Zone 1 signals appeared consistently? Which Zone 3 or 4 signals appeared?
 Name the primary finding — one specific sentence about what this person genuinely brings that AI cannot reliably replicate. Not a category. A sentence about this specific person based on what was actually observed.
+Prepare one specific observed sentence for each dimension for the JSON fields dim_judgment, dim_relational, dim_synthesis, dim_creative, and dim_adaptive — each grounded in what they actually said, with honest Zone 1 / 2 / 3 framing where relevant. Never use "Not observed."
 Determine the engagement/energy profile:
 
 BUILD: capability present, energy present, direction clear
@@ -122,6 +123,13 @@ zone: Zone 1, Zone 2, Zone 3, or Zone 4
 action_1, action_2, action_3: three specific next actions based on what was actually found
 energy_profile: Build, Explore, Optimize, or Honest_Conversation
 
+DIMENSION FINDINGS — REQUIRED IN THE SAME JSON (each value is one sentence, specific to this person, never generic):
+dim_judgment: What you observed about their judgment depth — how they handled situations without clear answers. If the dimension showed a strong Zone 1 signal, name that specifically. If Zone 2 or 3, name that honestly. Never write "Not observed" — always state what was found, even if limited.
+dim_relational: What you observed about their relational intelligence — how they engaged with the human dimensions. Same Zone honesty rule; never "Not observed."
+dim_synthesis: What you observed about their synthesis capacity — how they held competing priorities. Same rules.
+dim_creative: What you observed about their creative originality — whether their work required novel thinking or executed existing frameworks. Same rules.
+dim_adaptive: What you observed about their adaptive execution — how they handle situations at the edge of their expertise. Same rules.
+
 Output the tags even if the conversation feels incomplete. Never skip this step.`;
 
 const MODEL = 'claude-sonnet-4-20250514';
@@ -133,10 +141,10 @@ const FOLLOW_UP_USER_MESSAGE =
   'Please now output your structured assessment result in the required format.';
 
 const SYSTEM_PROMPT_STRUCTURED_OUTPUT_ONLY =
-  'You must now output ONLY a JSON object wrapped in <assessment_result> tags. No other text before the tags. The JSON must contain: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence about what this person genuinely brings), zone (Zone 1, Zone 2, Zone 3, or Zone 4), action_1, action_2, action_3 (three specific next actions), energy_profile (Build, Explore, Optimize, or Honest_Conversation). Output the tags immediately.';
+  'You must now output ONLY a JSON object wrapped in <assessment_result> tags. No other text before the tags. The JSON must contain: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), primary_finding (one specific sentence about what this person genuinely brings), zone (Zone 1, Zone 2, Zone 3, or Zone 4), action_1, action_2, action_3 (three specific next actions), energy_profile (Build, Explore, Optimize, or Honest_Conversation), dim_judgment (one sentence: judgment depth / ambiguity — specific to this person; name Zone 1, 2, or 3 signal if applicable; never "Not observed"), dim_relational (one sentence: relational intelligence / human dimensions), dim_synthesis (one sentence: synthesis / competing priorities), dim_creative (one sentence: novel thinking vs existing frameworks), dim_adaptive (one sentence: edge of expertise / adaptive execution). Output the tags immediately.';
 
 const SYSTEM_PROMPT_FORCE_VERDICT =
-  'Based on the conversation history provided, output ONLY a JSON object wrapped in <assessment_result> tags. Nothing before the tags. The JSON must contain exactly these fields: verdict (must be one of: WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (integer 0-100), primary_finding (one specific sentence naming what this person genuinely brings that AI cannot replace), zone (one of: Zone 1, Zone 2, Zone 3, or Zone 4), action_1 (specific next action), action_2 (specific next action), action_3 (specific next action), energy_profile (one of: Build, Explore, Optimize, Honest_Conversation). Output the opening tag, then valid JSON, then the closing tag. Nothing else.';
+  'Based on the conversation history provided, output ONLY a JSON object wrapped in <assessment_result> tags. Nothing before the tags. The JSON must contain exactly these fields: verdict (must be one of: WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (integer 0-100), primary_finding (one specific sentence naming what this person genuinely brings that AI cannot replace), zone (one of: Zone 1, Zone 2, Zone 3, or Zone 4), action_1 (specific next action), action_2 (specific next action), action_3 (specific next action), energy_profile (one of: Build, Explore, Optimize, Honest_Conversation), dim_judgment (one sentence on judgment depth / unclear situations — specific to this person; name Zone 1/2/3 if applicable; never "Not observed"), dim_relational (one sentence on relational intelligence), dim_synthesis (one sentence on holding competing priorities), dim_creative (one sentence on novelty vs frameworks), dim_adaptive (one sentence on edge of expertise). Output the opening tag, then valid JSON, then the closing tag. Nothing else.';
 
 /** First turn when POST body has messages: [] */
 const ASSESSMENT_START_USER_MESSAGE =

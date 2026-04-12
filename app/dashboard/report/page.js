@@ -29,13 +29,22 @@ const ZONE_SEGMENTS = [
   { n: 4, label: 'ZONE 4 — TRANSITION' }
 ];
 
+const DIMENSION_FALLBACK =
+  'Complete a new assessment to see your dimension breakdown.';
+
 const DIMENSIONS = [
-  { name: 'JUDGMENT DEPTH', dot: TEAL },
-  { name: 'RELATIONAL INTELLIGENCE', dot: TEAL },
-  { name: 'SYNTHESIS CAPACITY', dot: AMBER },
-  { name: 'CREATIVE ORIGINALITY', dot: DOT_NAVY_MUTED },
-  { name: 'ADAPTIVE EXECUTION', dot: DOT_NAVY_MUTED }
+  { name: 'JUDGMENT DEPTH', dot: TEAL, field: 'dim_judgment' },
+  { name: 'RELATIONAL INTELLIGENCE', dot: TEAL, field: 'dim_relational' },
+  { name: 'SYNTHESIS CAPACITY', dot: AMBER, field: 'dim_synthesis' },
+  { name: 'CREATIVE ORIGINALITY', dot: DOT_NAVY_MUTED, field: 'dim_creative' },
+  { name: 'ADAPTIVE EXECUTION', dot: DOT_NAVY_MUTED, field: 'dim_adaptive' }
 ];
+
+function dimensionFindingText(submission, field) {
+  const raw = submission?.[field];
+  const s = raw == null ? '' : String(raw).trim();
+  return s === '' ? DIMENSION_FALLBACK : s;
+}
 
 function verdictColor(verdict) {
   const v = String(verdict || '')
@@ -555,8 +564,8 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
                 >
                   {dim.name}
                 </div>
-                <div style={{ fontSize: 14, fontFamily: FONT_SANS, color: MUTED }}>
-                  Observed in assessment.
+                <div style={{ fontSize: 14, fontFamily: FONT_SANS, color: MUTED, lineHeight: 1.55 }}>
+                  {dimensionFindingText(submission, dim.field)}
                 </div>
               </div>
             </div>
@@ -680,7 +689,7 @@ export default function ReportPage() {
       const { data, error: qErr } = await supabase
         .from('assessment_submissions')
         .select(
-          'verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, created_at'
+          'verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive, created_at'
         )
         .eq('user_id', u.id)
         .order('created_at', { ascending: false })

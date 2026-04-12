@@ -150,6 +150,11 @@ export default function AssessmentPage() {
         action_2: result.action_2 ?? null,
         action_3: result.action_3 ?? null,
         energy_profile: result.energy_profile ?? null,
+        dim_judgment: result.dim_judgment ?? null,
+        dim_relational: result.dim_relational ?? null,
+        dim_synthesis: result.dim_synthesis ?? null,
+        dim_creative: result.dim_creative ?? null,
+        dim_adaptive: result.dim_adaptive ?? null,
         status: 'completed'
       };
 
