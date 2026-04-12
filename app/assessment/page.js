@@ -175,8 +175,15 @@ export default function AssessmentPage() {
         .from('assessment_submissions')
         .insert([row]);
 
-      if (insertError) throw insertError;
-      router.push('/dashboard');
+      if (insertError) {
+        throw new Error(insertError.message || String(insertError));
+      }
+
+      // Defer navigation so it isn't lost when the caller's `finally` updates state
+      // (setSavingAssessment / setAwaiting) in the same turn as the save completing.
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 0);
     },
     [router, supabase]
   );
