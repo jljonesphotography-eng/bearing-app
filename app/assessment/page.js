@@ -18,10 +18,6 @@ const FONT_SANS =
 const START_USER_MESSAGE =
   'Please begin the Bearing conversational assessment.';
 
-/** Final user turn for forceVerdict requests (not shown in chat UI) */
-const FORCE_VERDICT_USER_MESSAGE =
-  'Please now output your structured Bearing assessment result in the required format. Produce only valid JSON inside <assessment_result> tags as instructed.';
-
 function stripAssessmentTags(text) {
   if (!text) return '';
   return text
@@ -97,6 +93,7 @@ export default function AssessmentPage() {
   const [input, setInput] = useState('');
   const [error, setError] = useState(null);
   const [started, setStarted] = useState(false);
+  const [savingAssessment, setSavingAssessment] = useState(false);
 
   const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -273,54 +270,42 @@ export default function AssessmentPage() {
     (m) => m.role === 'user' && m.content !== START_USER_MESSAGE
   ).length;
   const lastMessage = apiMessages.length > 0 ? apiMessages[apiMessages.length - 1] : null;
-  /** Only after the user has sent all 7 answers and Claude has finished the reply to Q7 (final synthesis turn). */
+  /** After Q7 synthesis; hidden while a normal reply is loading, but stays visible while saving via extract (`savingAssessment`). */
   const showGetMyAssessment =
     started &&
     userTypedCount >= 7 &&
-    !awaiting &&
-    lastMessage?.role === 'assistant';
+    lastMessage?.role === 'assistant' &&
+    (!awaiting || savingAssessment);
 
   const handleGetMyAssessment = async () => {
     if (!started || awaiting || apiMessages.length === 0) return;
     if (apiMessages[apiMessages.length - 1]?.role !== 'assistant') return;
 
     setError(null);
+    setSavingAssessment(true);
     setAwaiting(true);
 
-    const payloadForApi = [
-      ...apiMessages,
-      { role: 'user', content: FORCE_VERDICT_USER_MESSAGE }
-    ];
-
     try {
-      const data = await callAssess(payloadForApi, { forceVerdict: true });
-      logAssessResponse('forceVerdict /api/assess response', data);
-
-      const assistantText = data.text ?? '';
-      let result =
-        data.result ?? parseStructuredResultFromText(assistantText);
-      if (result && !data.result) {
-        console.log(
-          '[Bearing assess] Parsed result from assistant text (client fallback)',
-          result
-        );
+      const res = await fetch('/api/assessment/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: apiMessages })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || 'Could not extract assessment results.');
       }
 
-      setApiMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: assistantText }
-      ]);
-
-      if (result) {
-        await saveResultAndRedirect(result);
-      } else {
-        setError(
-          'No structured result was returned. Try again or continue the conversation.'
-        );
+      const result = data?.result;
+      if (!result || typeof result !== 'object') {
+        throw new Error('Extraction returned no structured result.');
       }
+
+      await saveResultAndRedirect(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
     } finally {
+      setSavingAssessment(false);
       setAwaiting(false);
     }
   };
@@ -436,7 +421,7 @@ export default function AssessmentPage() {
           );
         })}
 
-        {awaiting && (
+        {awaiting && !savingAssessment && (
           <div
             style={{
               display: 'flex',
@@ -489,7 +474,7 @@ export default function AssessmentPage() {
               opacity: awaiting ? 0.55 : 1
             }}
           >
-            Get My Assessment
+            {savingAssessment ? 'Saving your results…' : 'Get My Assessment'}
           </button>
         )}
 
