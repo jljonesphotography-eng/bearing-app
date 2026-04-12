@@ -29,27 +29,41 @@ function stripAssessmentTags(text) {
     .trim();
 }
 
-/** Mirrors server parsing: tags, optional ```json fences, brace slice fallback */
+/** Mirrors server parsing: tags, optional ```json fences, brace slice fallback, then raw JSON */
 function parseStructuredResultFromText(text) {
   if (!text || typeof text !== 'string') return null;
   const match = text.match(/<assessment_result>\s*([\s\S]*?)\s*<\/assessment_result>/i);
-  if (!match) return null;
-  let raw = match[1].trim();
-  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
+  if (match) {
+    let raw = match[1].trim();
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    try {
+      return JSON.parse(raw);
+    } catch {
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        try {
+          return JSON.parse(raw.slice(start, end + 1));
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  }
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) {
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
     if (start >= 0 && end > start) {
       try {
-        return JSON.parse(raw.slice(start, end + 1));
+        return JSON.parse(trimmed.slice(start, end + 1));
       } catch {
         return null;
       }
     }
-    return null;
   }
+  return null;
 }
 
 function logAssessResponse(context, data) {
@@ -258,10 +272,17 @@ export default function AssessmentPage() {
   const userTypedCount = apiMessages.filter(
     (m) => m.role === 'user' && m.content !== START_USER_MESSAGE
   ).length;
-  const showGetMyAssessment = started && userTypedCount >= 7;
+  const lastMessage = apiMessages.length > 0 ? apiMessages[apiMessages.length - 1] : null;
+  /** Only after the user has sent all 7 answers and Claude has finished the reply to Q7 (final synthesis turn). */
+  const showGetMyAssessment =
+    started &&
+    userTypedCount >= 7 &&
+    !awaiting &&
+    lastMessage?.role === 'assistant';
 
   const handleGetMyAssessment = async () => {
     if (!started || awaiting || apiMessages.length === 0) return;
+    if (apiMessages[apiMessages.length - 1]?.role !== 'assistant') return;
 
     setError(null);
     setAwaiting(true);
@@ -276,7 +297,7 @@ export default function AssessmentPage() {
       logAssessResponse('forceVerdict /api/assess response', data);
 
       const assistantText = data.text ?? '';
-      const result =
+      let result =
         data.result ?? parseStructuredResultFromText(assistantText);
       if (result && !data.result) {
         console.log(

@@ -184,24 +184,41 @@ function hasAssessmentResultTags(text) {
 }
 
 function parseAssessmentResult(text) {
+  if (!text || typeof text !== 'string') return null;
+
   const match = text.match(/<assessment_result>\s*([\s\S]*?)\s*<\/assessment_result>/i);
-  if (!match) return null;
-  let raw = match[1].trim();
-  raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
-  try {
-    return JSON.parse(raw);
-  } catch {
-    const start = raw.indexOf('{');
-    const end = raw.lastIndexOf('}');
+  if (match) {
+    let raw = match[1].trim();
+    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
+    try {
+      return JSON.parse(raw);
+    } catch {
+      const start = raw.indexOf('{');
+      const end = raw.lastIndexOf('}');
+      if (start >= 0 && end > start) {
+        try {
+          return JSON.parse(raw.slice(start, end + 1));
+        } catch {
+          return null;
+        }
+      }
+      return null;
+    }
+  }
+
+  const trimmed = text.trim();
+  if (trimmed.startsWith('{')) {
+    const start = trimmed.indexOf('{');
+    const end = trimmed.lastIndexOf('}');
     if (start >= 0 && end > start) {
       try {
-        return JSON.parse(raw.slice(start, end + 1));
+        return JSON.parse(trimmed.slice(start, end + 1));
       } catch {
         return null;
       }
     }
-    return null;
   }
+  return null;
 }
 
 export async function POST(req) {
