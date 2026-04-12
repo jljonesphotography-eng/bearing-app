@@ -137,7 +137,168 @@ function Section1VerdictFull({ submission, vc }) {
   );
 }
 
-function ReportSections2Through7({ submission, zoneNum }) {
+const labelTealCaps = {
+  fontSize: 11,
+  fontFamily: FONT_SANS,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  fontWeight: 600,
+  color: TEAL,
+  marginBottom: 12
+};
+
+function AiCollaborationGuideSection({ verdict, primary_finding, zone, energy_profile }) {
+  const [phase, setPhase] = useState('loading');
+  const [guide, setGuide] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      setPhase('loading');
+      setGuide(null);
+      try {
+        const res = await fetch('/api/ai-collaboration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            verdict,
+            primary_finding,
+            zone,
+            energy_profile
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setPhase('error');
+          return;
+        }
+        if (
+          data &&
+          typeof data.domain_shift === 'string' &&
+          Array.isArray(data.amplification_methods) &&
+          data.amplification_methods.length === 3 &&
+          typeof data.next_skill === 'string'
+        ) {
+          setGuide(data);
+          setPhase('ready');
+        } else {
+          setPhase('error');
+        }
+      } catch {
+        if (!cancelled) setPhase('error');
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [verdict, primary_finding, zone, energy_profile]);
+
+  return (
+    <div style={{ marginBottom: 48 }}>
+      <p style={{ ...labelStyle(), marginBottom: phase === 'loading' ? 8 : 12 }}>AI COLLABORATION GUIDE</p>
+
+      {phase === 'loading' && (
+        <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: MUTED, margin: '0 0 24px' }}>
+          Generating your guide…
+        </p>
+      )}
+
+      {phase === 'error' && (
+        <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: MUTED, margin: '0 0 24px', lineHeight: 1.55 }}>
+          Your AI collaboration guide will appear here. Refresh to try again.
+        </p>
+      )}
+
+      {phase === 'ready' && guide && (
+        <>
+          <p style={labelTealCaps}>WHERE AI IS MOVING IN YOUR DOMAIN</p>
+          <div
+            style={{
+              backgroundColor: WARM_WHITE,
+              borderLeft: `4px solid ${NAVY}`,
+              borderRadius: '0 10px 10px 0',
+              padding: '20px 24px',
+              marginBottom: 32,
+              boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
+            }}
+          >
+            <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>
+              {guide.domain_shift}
+            </p>
+          </div>
+
+          <p style={{ ...labelTealCaps, marginBottom: 16 }}>HOW TO USE AI TO AMPLIFY YOUR CAPABILITY</p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+              gap: 16,
+              marginBottom: 32
+            }}
+          >
+            {guide.amplification_methods.map((method, i) => (
+              <div
+                key={i}
+                style={{
+                  backgroundColor: WARM_WHITE,
+                  border: `1px solid ${NAVY}`,
+                  borderRadius: 12,
+                  padding: '20px 18px'
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontFamily: FONT_SANS,
+                    letterSpacing: '0.12em',
+                    fontWeight: 700,
+                    color: TEAL,
+                    marginBottom: 12
+                  }}
+                >
+                  METHOD {i + 1}
+                </div>
+                <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.5 }}>
+                  {method}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ ...labelTealCaps, marginBottom: 12 }}>BUILD THIS NEXT — 30 DAYS</p>
+          <div
+            style={{
+              borderLeft: `4px solid ${TEAL}`,
+              backgroundColor: WARM_WHITE,
+              padding: '20px 24px',
+              borderRadius: '0 10px 10px 0',
+              boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
+            }}
+          >
+            <p
+              style={{
+                fontFamily: FONT_SANS,
+                fontSize: 16,
+                fontWeight: 700,
+                color: TEXT,
+                margin: 0,
+                lineHeight: 1.55
+              }}
+            >
+              {guide.next_skill}
+            </p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide }) {
   return (
     <div style={{ backgroundColor: WARM_WHITE, padding: '40px 20px 80px' }}>
       <div style={{ maxWidth: 880, margin: '0 auto' }}>
@@ -315,6 +476,15 @@ function ReportSections2Through7({ submission, zoneNum }) {
           ))}
         </div>
 
+        {showAiCollaborationGuide ? (
+          <AiCollaborationGuideSection
+            verdict={submission.verdict}
+            primary_finding={submission.primary_finding}
+            zone={submission.zone}
+            energy_profile={submission.energy_profile}
+          />
+        ) : null}
+
         <section
           style={{
             backgroundColor: NAVY,
@@ -379,6 +549,7 @@ export default function ReportPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
+      await supabase.auth.refreshSession().catch(() => {});
       const { data: auth, error: authErr } = await supabase.auth.getUser();
       if (authErr) throw authErr;
       const u = auth?.user;
@@ -420,7 +591,7 @@ export default function ReportPage() {
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ priceId })
+        body: JSON.stringify({ priceId, userId: user.id })
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Checkout request failed.');
@@ -506,7 +677,7 @@ export default function ReportPage() {
               userSelect: 'none'
             }}
           >
-            <ReportSections2Through7 submission={submission} zoneNum={zoneNum} />
+            <ReportSections2Through7 submission={submission} zoneNum={zoneNum} showAiCollaborationGuide={false} />
           </div>
 
           <div
@@ -585,7 +756,7 @@ export default function ReportPage() {
         </div>
       )}
       <Section1VerdictFull submission={submission} vc={vc} />
-      <ReportSections2Through7 submission={submission} zoneNum={zoneNum} />
+      <ReportSections2Through7 submission={submission} zoneNum={zoneNum} showAiCollaborationGuide />
     </div>
   );
 }

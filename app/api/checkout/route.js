@@ -15,10 +15,17 @@ export async function POST(req) {
       apiVersion: '2025-02-24.acacia'
     });
 
-    const { priceId } = await req.json();
+    const body = await req.json();
+    const { priceId, userId } = body;
     if (!priceId || typeof priceId !== 'string') {
       return NextResponse.json(
         { error: 'Missing or invalid priceId.' },
+        { status: 400 }
+      );
+    }
+    if (!userId || typeof userId !== 'string') {
+      return NextResponse.json(
+        { error: 'Missing or invalid userId (signed-in user id required for checkout).' },
         { status: 400 }
       );
     }
@@ -30,7 +37,9 @@ export async function POST(req) {
     const session = await stripe.checkout.sessions.create({
       line_items: [{ price: priceId, quantity: 1 }],
       mode: 'subscription',
-      success_url: `${origin}/dashboard?success=true`,
+      client_reference_id: userId,
+      metadata: { supabase_user_id: userId },
+      success_url: `${origin}/dashboard?checkout_success=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${origin}/dashboard?canceled=true`
     });
 

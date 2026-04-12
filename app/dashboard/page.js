@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const COLORS = {
@@ -126,6 +126,55 @@ export default function DashboardPage() {
     };
   }, [router, supabase]);
 
+  const checkoutSyncDone = useRef(false);
+
+  useEffect(() => {
+    if (!supabase || loading || checkoutSyncDone.current) return;
+
+    async function syncStripeReturn() {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
+      if (!sessionId) return;
+
+      const okReturn =
+        params.get('checkout_success') === '1' || params.get('success') === 'true';
+      if (!okReturn) return;
+
+      checkoutSyncDone.current = true;
+
+      try {
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        if (userError) throw userError;
+        const user = userData?.user;
+        if (!user) return;
+
+        const res = await fetch('/api/stripe/confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId, userId: user.id })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.verified) {
+          await supabase.auth.refreshSession();
+          const url = new URL(window.location.href);
+          url.searchParams.delete('session_id');
+          url.searchParams.delete('checkout_success');
+          url.searchParams.delete('success');
+          window.history.replaceState({}, '', url.pathname + (url.search || ''));
+        } else {
+          checkoutSyncDone.current = false;
+          console.error('Checkout confirm failed:', data?.error || res.status);
+        }
+      } catch (e) {
+        checkoutSyncDone.current = false;
+        console.error('Checkout sync error:', e);
+      }
+    }
+
+    syncStripeReturn();
+  }, [supabase, loading]);
+
   const handleSignOut = async () => {
     try {
       if (supabase) await supabase.auth.signOut();
@@ -137,11 +186,21 @@ export default function DashboardPage() {
   const handleUpgrade = async () => {
     setUpgrading(true);
     try {
+      if (!supabase) throw new Error('Supabase is not configured.');
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      if (userError) throw userError;
+      const user = userData?.user;
+      if (!user) {
+        router.push('/login');
+        return;
+      }
+
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID
+          priceId: process.env.NEXT_PUBLIC_STRIPE_PRICE_ID,
+          userId: user.id
         })
       });
 
