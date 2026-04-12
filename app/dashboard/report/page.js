@@ -83,10 +83,12 @@ function labelStyle() {
   };
 }
 
-/** 240° arc from ~7 o'clock to ~5 o'clock (CCW through top), center (70,78), r=50 */
-const GAUGE_CX = 70;
-const GAUGE_CY = 78;
-const GAUGE_R = 50;
+/** 240° arc from ~7 o'clock to ~5 o'clock (CCW through top); viewBox 200×160 */
+const GAUGE_VIEW_W = 200;
+const GAUGE_VIEW_H = 160;
+const GAUGE_CX = 100;
+const GAUGE_CY = 118;
+const GAUGE_R = 71;
 
 function capabilityArcPathD() {
   const t1 = (150 * Math.PI) / 180;
@@ -118,57 +120,70 @@ function CapabilityConfidenceGauge({ vc }) {
     });
   }, []);
 
+  const arcTop = GAUGE_CY - GAUGE_R;
+  const arcChordY = GAUGE_CY - GAUGE_R * Math.sin((150 * Math.PI) / 180);
+  const pctCenterY = (arcTop + arcChordY) / 2;
+
   return (
-    <svg
-      width="140"
-      height="100"
-      viewBox="0 0 140 100"
-      style={{ display: 'block', margin: '0 auto' }}
-      aria-hidden
+    <div
+      style={{
+        width: 200,
+        maxWidth: '100%',
+        margin: '0 auto'
+      }}
     >
-      <path
-        d={pathD}
-        fill="none"
-        stroke="rgba(255,255,255,0.15)"
-        strokeWidth={8}
-        strokeLinecap="round"
-      />
-      <path
-        ref={fillRef}
-        d={pathD}
-        fill="none"
-        stroke={vc}
-        strokeWidth={8}
-        strokeLinecap="round"
-      />
-      <text
-        x={GAUGE_CX}
-        y={44}
-        textAnchor="middle"
-        style={{
-          fontFamily: FONT_MONO,
-          fontSize: 24,
-          fill: '#ffffff'
-        }}
+      <svg
+        width={GAUGE_VIEW_W}
+        height={GAUGE_VIEW_H}
+        viewBox={`0 0 ${GAUGE_VIEW_W} ${GAUGE_VIEW_H}`}
+        style={{ display: 'block', overflow: 'visible' }}
+        aria-hidden
       >
-        78%
-      </text>
-      <text
-        x={GAUGE_CX}
-        y={64}
-        textAnchor="middle"
+        <path
+          d={pathD}
+          fill="none"
+          stroke="rgba(255,255,255,0.15)"
+          strokeWidth={10}
+          strokeLinecap="round"
+        />
+        <path
+          ref={fillRef}
+          d={pathD}
+          fill="none"
+          stroke={vc}
+          strokeWidth={10}
+          strokeLinecap="round"
+        />
+        <text
+          x={GAUGE_CX}
+          y={pctCenterY}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 28,
+            fill: '#ffffff'
+          }}
+        >
+          78%
+        </text>
+      </svg>
+      <p
         style={{
           fontFamily: FONT_SANS,
           fontSize: 10,
           fontWeight: 600,
           letterSpacing: '0.14em',
           textTransform: 'uppercase',
-          fill: 'rgba(255,255,255,0.6)'
+          color: 'rgba(255,255,255,0.6)',
+          margin: '8px 0 0',
+          textAlign: 'center',
+          lineHeight: 1.3
         }}
       >
         CAPABILITY CONFIDENCE
-      </text>
-    </svg>
+      </p>
+    </div>
   );
 }
 
