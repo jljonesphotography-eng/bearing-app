@@ -19,6 +19,7 @@ const DOT_NAVY_MUTED = '#5c6b7a';
 
 const FONT_SANS = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
 const FONT_DISPLAY = '"Playfair Display", Georgia, serif';
+const FONT_MONO = '"IBM Plex Mono", ui-monospace, monospace';
 
 const ZONE_SEGMENTS = [
   { n: 1, label: 'ZONE 1 — WELL-POSITIONED' },
@@ -142,23 +143,44 @@ function Section1VerdictFull({ submission, vc }) {
         >
           CAPABILITY CONFIDENCE
         </p>
-        <div
-          style={{
-            height: 8,
-            width: '100%',
-            borderRadius: 9999,
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            overflow: 'hidden'
-          }}
-        >
+        <div style={{ width: '100%', textAlign: 'left' }}>
           <div
             style={{
-              height: '100%',
               width: '75%',
-              backgroundColor: vc,
-              borderRadius: 9999
+              display: 'flex',
+              justifyContent: 'flex-end',
+              marginBottom: 6
             }}
-          />
+          >
+            <span
+              style={{
+                fontFamily: FONT_MONO,
+                fontSize: 14,
+                color: vc,
+                lineHeight: 1
+              }}
+            >
+              75%
+            </span>
+          </div>
+          <div
+            style={{
+              height: 16,
+              width: '100%',
+              borderRadius: 9999,
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                width: '75%',
+                backgroundColor: vc,
+                borderRadius: 9999
+              }}
+            />
+          </div>
         </div>
       </div>
     </section>
