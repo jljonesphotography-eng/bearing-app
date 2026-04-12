@@ -45,6 +45,15 @@ function verdictColor(verdict) {
   return MUTED;
 }
 
+function hexToRgba(hex, alpha) {
+  const h = String(hex).replace('#', '');
+  if (h.length !== 6) return hex;
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 function verdictDisplayWord(verdict) {
   const v = String(verdict || '')
     .toUpperCase()
@@ -113,25 +122,33 @@ function Section1VerdictFull({ submission, vc }) {
             lineHeight: 1.55,
             color: 'rgba(255,255,255,0.88)',
             maxWidth: 560,
-            margin: '0 auto 36px'
+            margin: '0 auto 16px'
           }}
         >
           {String(submission.primary_finding).trim()}
         </p>
       ) : null}
 
-      <div style={{ maxWidth: 280, margin: '0 auto' }}>
-        <svg width="280" height="72" viewBox="0 0 280 72" aria-hidden>
-          <path
-            d="M 20 52 A 120 120 0 0 1 260 52"
-            fill="none"
-            stroke={vc}
-            strokeWidth="6"
-            strokeLinecap="round"
-            pathLength="100"
-            className="bearing-report-confidence-arc"
-          />
-        </svg>
+      <div
+        style={{
+          maxWidth: 560,
+          width: '100%',
+          margin: submission.primary_finding ? '0 auto 0' : '24px auto 0',
+          padding: '0 0 36px'
+        }}
+        aria-hidden
+      >
+        <div
+          style={{
+            height: 4,
+            width: '100%',
+            borderRadius: 2,
+            backgroundColor: hexToRgba(vc, 0.15),
+            overflow: 'hidden'
+          }}
+        >
+          <div style={{ height: '100%', width: '75%', backgroundColor: vc }} />
+        </div>
       </div>
     </section>
   );

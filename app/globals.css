@@ -55,15 +55,6 @@ body {
   }
 }
 
-@keyframes bearing-report-arc-fill {
-  from {
-    stroke-dashoffset: 100;
-  }
-  to {
-    stroke-dashoffset: 25;
-  }
-}
-
 .bearing-report-verdict-word {
   opacity: 0;
   animation: bearing-report-verdict-in 0.8s ease forwards;
@@ -73,11 +64,4 @@ body {
   opacity: 0;
   animation: bearing-report-sentence-in 0.6s ease forwards;
   animation-delay: 0.5s;
-}
-
-.bearing-report-confidence-arc {
-  stroke-dasharray: 100;
-  stroke-dashoffset: 100;
-  animation: bearing-report-arc-fill 1s ease forwards;
-  animation-delay: 1.2s;
 }
