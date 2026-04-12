@@ -154,7 +154,7 @@ export default function AssessmentPage() {
           ? scoreRaw
           : Number.parseFloat(String(scoreRaw));
 
-      const row = {
+      const insertData = {
         user_id: user.id,
         total_score: Number.isFinite(totalScore) ? totalScore : null,
         verdict: result.verdict ?? null,
@@ -164,21 +164,22 @@ export default function AssessmentPage() {
         action_2: result.action_2 ?? null,
         action_3: result.action_3 ?? null,
         energy_profile: result.energy_profile ?? null,
-        dim_judgment: result.dim_judgment ?? null,
-        dim_relational: result.dim_relational ?? null,
-        dim_synthesis: result.dim_synthesis ?? null,
-        dim_creative: result.dim_creative ?? null,
-        dim_adaptive: result.dim_adaptive ?? null,
-        status: 'completed'
+        status: 'completed',
+        ...(result.dim_judgment && { dim_judgment: result.dim_judgment }),
+        ...(result.dim_relational && { dim_relational: result.dim_relational }),
+        ...(result.dim_synthesis && { dim_synthesis: result.dim_synthesis }),
+        ...(result.dim_creative && { dim_creative: result.dim_creative }),
+        ...(result.dim_adaptive && { dim_adaptive: result.dim_adaptive })
       };
 
-      console.log('[Bearing assess] Saving to Supabase', row);
+      console.log('[Bearing assess] Saving to Supabase', insertData);
 
       const { error: insertError } = await supabase
         .from('assessment_submissions')
-        .insert([row]);
+        .insert([insertData]);
 
       if (insertError) {
+        console.log('Supabase error:', JSON.stringify(insertError));
         throw new Error(insertError.message || String(insertError));
       }
 
