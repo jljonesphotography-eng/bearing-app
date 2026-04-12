@@ -379,20 +379,27 @@ export default function DashboardPage() {
                   </ol>
                 )}
 
-                <div style={{ marginTop: 14, color: COLORS.text, fontSize: 14, lineHeight: 1.55 }}>
-                  Review the{' '}
-                  <Link
-                    href="/dashboard/report"
-                    style={{
-                      color: COLORS.teal,
-                      fontWeight: 600,
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    Reporting View
-                  </Link>{' '}
-                  for a full category breakdown.
-                </div>
+                <Link
+                  href="/dashboard/report"
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    marginTop: 18,
+                    padding: '12px 18px',
+                    backgroundColor: COLORS.navy,
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: 10,
+                    fontSize: 14,
+                    fontWeight: 600,
+                    fontFamily: FONT_SANS,
+                    textAlign: 'center',
+                    textDecoration: 'none'
+                  }}
+                >
+                  View Full Report
+                </Link>
 
               </section>
             </div>
