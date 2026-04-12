@@ -45,15 +45,6 @@ function verdictColor(verdict) {
   return MUTED;
 }
 
-function hexToRgba(hex, alpha) {
-  const h = String(hex).replace('#', '');
-  if (h.length !== 6) return hex;
-  const r = parseInt(h.slice(0, 2), 16);
-  const g = parseInt(h.slice(2, 4), 16);
-  const b = parseInt(h.slice(4, 6), 16);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 function verdictDisplayWord(verdict) {
   const v = String(verdict || '')
     .toUpperCase()
@@ -122,7 +113,7 @@ function Section1VerdictFull({ submission, vc }) {
             lineHeight: 1.55,
             color: 'rgba(255,255,255,0.88)',
             maxWidth: 560,
-            margin: '0 auto 16px'
+            margin: '0 auto'
           }}
         >
           {String(submission.primary_finding).trim()}
@@ -133,21 +124,41 @@ function Section1VerdictFull({ submission, vc }) {
         style={{
           maxWidth: 560,
           width: '100%',
-          margin: submission.primary_finding ? '0 auto 0' : '24px auto 0',
-          padding: '0 0 36px'
+          margin: '40px auto',
+          textAlign: 'center'
         }}
         aria-hidden
       >
+        <p
+          style={{
+            fontFamily: FONT_SANS,
+            fontSize: 11,
+            letterSpacing: '0.14em',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            color: 'rgba(255,255,255,0.6)',
+            margin: '0 0 10px'
+          }}
+        >
+          CAPABILITY CONFIDENCE
+        </p>
         <div
           style={{
-            height: 4,
+            height: 8,
             width: '100%',
-            borderRadius: 2,
-            backgroundColor: hexToRgba(vc, 0.15),
+            borderRadius: 9999,
+            backgroundColor: 'rgba(255,255,255,0.2)',
             overflow: 'hidden'
           }}
         >
-          <div style={{ height: '100%', width: '75%', backgroundColor: vc }} />
+          <div
+            style={{
+              height: '100%',
+              width: '75%',
+              backgroundColor: vc,
+              borderRadius: 9999
+            }}
+          />
         </div>
       </div>
     </section>
