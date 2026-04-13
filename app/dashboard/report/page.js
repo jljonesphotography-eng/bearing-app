@@ -56,14 +56,25 @@ function verdictColor(verdict) {
   return MUTED;
 }
 
-function verdictDisplayWord(verdict) {
-  const v = String(verdict || '')
+function normalizeVerdict(verdict) {
+  return String(verdict || '')
     .toUpperCase()
     .replace(/\s+/g, '_');
+}
+
+function verdictDisplayWord(verdict) {
+  const v = normalizeVerdict(verdict);
   if (v === 'WELL_POSITIONED') return 'WELL-POSITIONED';
   if (v === 'TRANSITION_ADVISED') return 'TRANSITION ADVISED';
   if (v === 'EXPOSED') return 'EXPOSED';
   return verdict ? String(verdict).replace(/_/g, '-') : '—';
+}
+
+/** Report hero and full-report headline — maps the lowest band to BUILDING TOWARD. */
+function reportVerdictHeadline(verdict) {
+  const v = normalizeVerdict(verdict);
+  if (v === 'EXPOSED') return 'BUILDING TOWARD';
+  return verdictDisplayWord(verdict);
 }
 
 function parseZoneNumber(zone) {
@@ -217,7 +228,7 @@ function Section1VerdictFull({ submission, vc }) {
           lineHeight: 1.1
         }}
       >
-        {verdictDisplayWord(submission.verdict)}
+        {reportVerdictHeadline(submission.verdict)}
       </h1>
       {submission.primary_finding ? (
         <p
@@ -410,6 +421,302 @@ function AiCollaborationGuideSection({ verdict, primary_finding, zone, energy_pr
   );
 }
 
+const labelWatchListAmber = {
+  fontSize: 11,
+  fontFamily: FONT_SANS,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  fontWeight: 600,
+  color: AMBER,
+  marginBottom: 8
+};
+
+const labelGroundworkTealCaps = {
+  fontSize: 11,
+  fontFamily: FONT_SANS,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  fontWeight: 600,
+  color: GROUNDWORK_TEAL,
+  marginBottom: 12
+};
+
+const TEAL_TINT_BG = 'rgba(10, 95, 99, 0.08)';
+const AMBER_TINT_BG = 'rgba(217, 119, 6, 0.1)';
+
+function profileGeneratingLine() {
+  return (
+    <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: MUTED, margin: '0 0 24px' }}>Generating your profile...</p>
+  );
+}
+
+function ExposedAcknowledgmentSection({ primary_finding, zone }) {
+  const [phase, setPhase] = useState('loading');
+  const [ack, setAck] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      setPhase('loading');
+      setAck(null);
+      try {
+        const res = await fetch('/api/report/exposed-acknowledgment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ primary_finding, zone })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setPhase('error');
+          return;
+        }
+        if (data && typeof data.acknowledgment === 'string' && data.acknowledgment.trim()) {
+          setAck(data.acknowledgment.trim());
+          setPhase('ready');
+        } else {
+          setPhase('error');
+        }
+      } catch {
+        if (!cancelled) setPhase('error');
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [primary_finding, zone]);
+
+  return (
+    <div style={{ marginBottom: 48 }}>
+      <p style={{ ...labelStyle(), marginBottom: phase === 'loading' ? 8 : 12 }}>ACKNOWLEDGMENT</p>
+      {phase === 'loading' && profileGeneratingLine()}
+      {phase === 'error' && (
+        <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: MUTED, margin: '0 0 24px', lineHeight: 1.55 }}>
+          This section will appear here. Refresh to try again.
+        </p>
+      )}
+      {phase === 'ready' && ack && (
+        <div
+          style={{
+            backgroundColor: '#faf9f6',
+            borderLeft: `4px solid ${GROUNDWORK_TEAL}`,
+            borderRadius: '0 10px 10px 0',
+            padding: '20px 24px',
+            boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
+          }}
+        >
+          <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{ack}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WatchListSection({ primary_finding, zone }) {
+  const [phase, setPhase] = useState('loading');
+  const [items, setItems] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      setPhase('loading');
+      setItems(null);
+      try {
+        const res = await fetch('/api/report/watch-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ primary_finding, zone })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setPhase('error');
+          return;
+        }
+        if (
+          data &&
+          typeof data.watch_1 === 'string' &&
+          typeof data.watch_2 === 'string' &&
+          data.watch_1.trim() &&
+          data.watch_2.trim()
+        ) {
+          setItems({ watch_1: data.watch_1.trim(), watch_2: data.watch_2.trim() });
+          setPhase('ready');
+        } else {
+          setPhase('error');
+        }
+      } catch {
+        if (!cancelled) setPhase('error');
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [primary_finding, zone]);
+
+  return (
+    <div style={{ marginBottom: 48 }}>
+      <p style={{ ...labelWatchListAmber, marginBottom: phase === 'loading' ? 8 : 12 }}>WATCH LIST</p>
+      {phase === 'loading' && profileGeneratingLine()}
+      {phase === 'error' && (
+        <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: MUTED, margin: '0 0 24px', lineHeight: 1.55 }}>
+          Your watch list will appear here. Refresh to try again.
+        </p>
+      )}
+      {phase === 'ready' && items && (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: 16
+          }}
+        >
+          {[items.watch_1, items.watch_2].map((text, i) => (
+            <div
+              key={i}
+              style={{
+                border: `1px solid ${AMBER}`,
+                borderLeft: `4px solid ${AMBER}`,
+                backgroundColor: SURFACE,
+                borderRadius: 12,
+                padding: '20px 18px'
+              }}
+            >
+              <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TransitionAdvisedSections({ verdict, primary_finding, zone }) {
+  const [phase, setPhase] = useState('loading');
+  const [data, setData] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function run() {
+      setPhase('loading');
+      setData(null);
+      try {
+        const res = await fetch('/api/report/transition-breakdown', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ verdict, primary_finding, zone })
+        });
+        const json = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setPhase('error');
+          return;
+        }
+        if (
+          json &&
+          typeof json.strong_1 === 'string' &&
+          typeof json.strong_2 === 'string' &&
+          typeof json.build_1 === 'string' &&
+          typeof json.build_2 === 'string'
+        ) {
+          setData({
+            strong_1: json.strong_1.trim(),
+            strong_2: json.strong_2.trim(),
+            build_1: json.build_1.trim(),
+            build_2: json.build_2.trim()
+          });
+          setPhase('ready');
+        } else {
+          setPhase('error');
+        }
+      } catch {
+        if (!cancelled) setPhase('error');
+      }
+    }
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [verdict, primary_finding, zone]);
+
+  return (
+    <div style={{ marginBottom: 48 }}>
+      {phase === 'loading' && (
+        <>
+          <p style={{ ...labelGroundworkTealCaps, marginBottom: 8 }}>WHAT IS STRONG</p>
+          {profileGeneratingLine()}
+        </>
+      )}
+      {phase === 'error' && (
+        <>
+          <p style={labelGroundworkTealCaps}>WHAT IS STRONG</p>
+          <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: MUTED, margin: '0 0 24px', lineHeight: 1.55 }}>
+            This breakdown will appear here. Refresh to try again.
+          </p>
+        </>
+      )}
+      {phase === 'ready' && data && (
+        <>
+          <p style={labelGroundworkTealCaps}>WHAT IS STRONG</p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 16,
+              marginBottom: 32
+            }}
+          >
+            {[data.strong_1, data.strong_2].map((text, i) => (
+              <div
+                key={i}
+                style={{
+                  backgroundColor: TEAL_TINT_BG,
+                  borderLeft: `4px solid ${GROUNDWORK_TEAL}`,
+                  borderRadius: '0 10px 10px 0',
+                  padding: '20px 18px'
+                }}
+              >
+                <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
+              </div>
+            ))}
+          </div>
+
+          <p style={{ ...labelWatchListAmber, marginBottom: 12 }}>WHERE TO BUILD</p>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+              gap: 16
+            }}
+          >
+            {[data.build_1, data.build_2].map((text, i) => (
+              <div
+                key={i}
+                style={{
+                  backgroundColor: AMBER_TINT_BG,
+                  borderLeft: `4px solid ${AMBER}`,
+                  borderRadius: '0 10px 10px 0',
+                  padding: '20px 18px'
+                }}
+              >
+                <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ReportCertificatePromo() {
   return (
     <section
@@ -464,10 +771,21 @@ function ReportCertificatePromo() {
 }
 
 function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide, includeCertificate = true }) {
+  const verdictKey = normalizeVerdict(submission.verdict);
+  const isExposed = verdictKey === 'EXPOSED';
+  const isWellPositioned = verdictKey === 'WELL_POSITIONED';
+  const isTransitionAdvised = verdictKey === 'TRANSITION_ADVISED';
+  const primaryFindingLabel = isExposed ? 'BUILDING TOWARD' : 'CAPABILITY FINDING';
+  const verdictAi = showAiCollaborationGuide;
+
   return (
     <div style={{ backgroundColor: WARM_WHITE, padding: '40px 20px 80px' }}>
       <div style={{ maxWidth: 880, margin: '0 auto' }}>
-        <p style={{ ...labelStyle(), marginBottom: 12 }}>CAPABILITY FINDING</p>
+        {verdictAi && isExposed ? (
+          <ExposedAcknowledgmentSection primary_finding={submission.primary_finding} zone={submission.zone} />
+        ) : null}
+
+        <p style={{ ...labelStyle(), marginBottom: 12 }}>{primaryFindingLabel}</p>
         <div
           style={{
             border: `2px solid ${NAVY}`,
@@ -489,6 +807,18 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
             {String(submission.primary_finding || '—').trim()}
           </p>
         </div>
+
+        {verdictAi && isWellPositioned ? (
+          <WatchListSection primary_finding={submission.primary_finding} zone={submission.zone} />
+        ) : null}
+
+        {verdictAi && isTransitionAdvised ? (
+          <TransitionAdvisedSections
+            verdict={submission.verdict}
+            primary_finding={submission.primary_finding}
+            zone={submission.zone}
+          />
+        ) : null}
 
         <p style={{ ...labelStyle(), marginBottom: 12 }}>CAPABILITY ZONE</p>
         <div
@@ -791,7 +1121,7 @@ export default function ReportPage() {
               lineHeight: 1.1
             }}
           >
-            {verdictDisplayWord(submission.verdict)}
+            {reportVerdictHeadline(submission.verdict)}
           </h1>
         </div>
 
