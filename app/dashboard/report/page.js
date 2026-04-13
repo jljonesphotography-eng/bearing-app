@@ -717,6 +717,151 @@ function TransitionAdvisedSections({ verdict, primary_finding, zone }) {
   );
 }
 
+const labelNextStepAmber = {
+  fontSize: 11,
+  fontFamily: FONT_SANS,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  fontWeight: 600,
+  color: AMBER,
+  margin: '0 0 12px'
+};
+
+const labelNextStepTealOnNavy = {
+  fontSize: 11,
+  fontFamily: FONT_SANS,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  fontWeight: 600,
+  color: GROUNDWORK_TEAL,
+  margin: '0 0 12px'
+};
+
+function CoachingOfferCard({ variant }) {
+  if (variant === 'transition') {
+    return (
+      <section
+        style={{
+          backgroundColor: '#faf9f6',
+          borderLeft: `4px solid ${AMBER}`,
+          borderRadius: '0 12px 12px 0',
+          padding: 24,
+          marginBottom: 48,
+          maxWidth: 880,
+          boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
+        }}
+      >
+        <p style={labelNextStepAmber}>NEXT STEP</p>
+        <h2
+          style={{
+            fontFamily: FONT_DISPLAY,
+            fontSize: 22,
+            fontWeight: 600,
+            color: NAVY,
+            margin: '0 0 12px',
+            lineHeight: 1.25
+          }}
+        >
+          From Stuck to Named
+        </h2>
+        <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: '0 0 16px', lineHeight: 1.55 }}>
+          A 6-week program that takes what the assessment found and builds the language and evidence you need to make it
+          visible to the people who should see it.
+        </p>
+        <p
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 20,
+            fontWeight: 700,
+            color: NAVY,
+            margin: '0 0 20px'
+          }}
+        >
+          $297
+        </p>
+        <Link
+          href="/coaching"
+          style={{
+            display: 'inline-block',
+            backgroundColor: AMBER,
+            color: '#ffffff',
+            fontFamily: FONT_SANS,
+            fontSize: 15,
+            fontWeight: 600,
+            padding: '12px 24px',
+            borderRadius: 8,
+            textDecoration: 'none'
+          }}
+        >
+          Learn More
+        </Link>
+      </section>
+    );
+  }
+
+  if (variant === 'exposed') {
+    return (
+      <section
+        style={{
+          backgroundColor: NAVY,
+          borderRadius: 12,
+          padding: 24,
+          marginBottom: 48,
+          maxWidth: 880,
+          boxShadow: '0 4px 24px rgba(27, 58, 107, 0.2)'
+        }}
+      >
+        <p style={labelNextStepTealOnNavy}>NEXT STEP</p>
+        <h2
+          style={{
+            fontFamily: FONT_DISPLAY,
+            fontSize: 22,
+            fontWeight: 600,
+            color: '#ffffff',
+            margin: '0 0 12px',
+            lineHeight: 1.25
+          }}
+        >
+          From Exposed to Elevated
+        </h2>
+        <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: '#ffffff', margin: '0 0 16px', lineHeight: 1.55 }}>
+          A 90-day program built on what the assessment found. Takes your capability profile as the foundation for three
+          months of structured work — ending with a new assessment and a new certificate.
+        </p>
+        <p
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 20,
+            fontWeight: 700,
+            color: '#ffffff',
+            margin: '0 0 20px'
+          }}
+        >
+          $697
+        </p>
+        <Link
+          href="/coaching"
+          style={{
+            display: 'inline-block',
+            backgroundColor: GROUNDWORK_TEAL,
+            color: '#ffffff',
+            fontFamily: FONT_SANS,
+            fontSize: 15,
+            fontWeight: 600,
+            padding: '12px 24px',
+            borderRadius: 8,
+            textDecoration: 'none'
+          }}
+        >
+          Learn More
+        </Link>
+      </section>
+    );
+  }
+
+  return null;
+}
+
 function ReportCertificatePromo() {
   return (
     <section
@@ -979,6 +1124,9 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
             energy_profile={submission.energy_profile}
           />
         ) : null}
+
+        {includeCertificate && isTransitionAdvised ? <CoachingOfferCard variant="transition" /> : null}
+        {includeCertificate && isExposed ? <CoachingOfferCard variant="exposed" /> : null}
 
         {includeCertificate ? <ReportCertificatePromo /> : null}
       </div>
