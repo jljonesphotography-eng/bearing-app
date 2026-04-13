@@ -25,14 +25,12 @@ The plain language part should feel like the most useful thing a coach could say
 Each dim_* value in the JSON must be a single string in the form: Part1||PLAIN||Part2 (use the exact delimiter ||PLAIN|| with no spaces inside the delimiter).
 
 ACTION ITEMS (action_1, action_2, action_3)
-Each action item must include four elements on separate lines:
-Line 1: WHAT — the specific action (one sentence, direct)
-Line 2: WHY NOW — why this matters at this specific moment in their career, given their profile (one sentence)
-Line 3: THIS WEEK — what doing this actually looks like in practice in the next 7 days (one concrete example)
-Line 4: WHAT CHANGES — what will be different when they do this consistently (one sentence, specific to their finding)
-Format each action item with these four lines. Make it feel like a coach who has just spent 45 minutes with this person, not a generic recommendation.
-
-Each action_* value in the JSON must be one string; use newline characters between the four lines within that string.`;
+Each action item must be returned as a single string for action_1, action_2, and action_3 in this exact format with newlines between each line:
+WHAT — [the specific action, one sentence, direct, no jargon]
+WHY NOW — [why this matters at this exact moment in their career given what was observed, one sentence]
+THIS WEEK — [one concrete example of what doing this looks like in the next 7 days, specific not abstract]
+WHAT CHANGES — [what will be different when they do this consistently, one sentence tied to their specific finding]
+Use this format exactly. No deviation. Every action item must have all four lines.`;
 
 function textFromMessage(response) {
   const blocks = response?.content;

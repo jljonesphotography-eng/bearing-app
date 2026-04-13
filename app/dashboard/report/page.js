@@ -17,6 +17,9 @@ const AMBER = '#D97706';
 const SURFACE = '#ffffff';
 const ZONE_MUTED = '#d4d1c8';
 const DOT_NAVY_MUTED = '#5c6b7a';
+const ACTION_LINE_MUTED = '#6B7280';
+const ACTION_LINE_WARM = '#92400E';
+const ACTION_LINE_RULE = '#E5E7EB';
 
 const FONT_SANS = '"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif';
 const FONT_DISPLAY = '"Playfair Display", Georgia, serif';
@@ -127,6 +130,15 @@ function parseStructuredActionItem(raw) {
   }
   return null;
 }
+
+const actionMapRowLabel = {
+  fontSize: 10,
+  fontFamily: FONT_SANS,
+  fontVariant: 'small-caps',
+  letterSpacing: '0.1em',
+  fontWeight: 600,
+  color: GROUNDWORK_TEAL
+};
 
 function hasFullReportAccess(user) {
   if (process.env.NEXT_PUBLIC_REPORT_GATE_BYPASS === 'true') return true;
@@ -1167,64 +1179,70 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
                       style={{
                         fontSize: 13,
                         fontFamily: FONT_SANS,
-                        color: MUTED,
+                        color: ACTION_LINE_MUTED,
                         margin: '0 0 10px',
                         lineHeight: 1.55
                       }}
                     >
-                      <span
-                        style={{
-                          fontVariant: 'small-caps',
-                          letterSpacing: '0.08em',
-                          fontWeight: 600
-                        }}
-                      >
-                        Why now:
-                      </span>{' '}
+                      <span style={actionMapRowLabel}>WHY NOW</span>{' '}
                       {structured.whyNow}
                     </p>
-                    <p
+                    <div
                       style={{
-                        fontSize: 13,
-                        fontFamily: FONT_SANS,
-                        color: AMBER,
-                        margin: '0 0 10px',
-                        lineHeight: 1.55
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        margin: '0 0 10px'
                       }}
                     >
                       <span
                         style={{
-                          fontVariant: 'small-caps',
-                          letterSpacing: '0.08em',
-                          fontWeight: 600
+                          fontFamily: FONT_SANS,
+                          fontSize: 13,
+                          lineHeight: 1.55,
+                          color: GROUNDWORK_TEAL,
+                          flexShrink: 0,
+                          marginTop: 1
+                        }}
+                        aria-hidden
+                      >
+                        ›
+                      </span>
+                      <p
+                        style={{
+                          fontSize: 13,
+                          fontFamily: FONT_SANS,
+                          color: ACTION_LINE_WARM,
+                          margin: 0,
+                          lineHeight: 1.55,
+                          flex: 1
                         }}
                       >
-                        This week:
-                      </span>{' '}
-                      {structured.thisWeek}
-                    </p>
-                    <p
+                        <span style={actionMapRowLabel}>THIS WEEK</span>{' '}
+                        {structured.thisWeek}
+                      </p>
+                    </div>
+                    <div
                       style={{
-                        fontSize: 13,
-                        fontFamily: FONT_SANS,
-                        color: MUTED,
-                        margin: 0,
-                        lineHeight: 1.55,
-                        fontStyle: 'italic'
+                        borderTop: `1px solid ${ACTION_LINE_RULE}`,
+                        marginTop: 4,
+                        paddingTop: 12
                       }}
                     >
-                      <span
+                      <p
                         style={{
-                          fontVariant: 'small-caps',
-                          letterSpacing: '0.08em',
-                          fontWeight: 600,
-                          fontStyle: 'normal'
+                          fontSize: 13,
+                          fontFamily: FONT_SANS,
+                          color: ACTION_LINE_MUTED,
+                          margin: 0,
+                          lineHeight: 1.55,
+                          fontStyle: 'italic'
                         }}
                       >
-                        What changes:
-                      </span>{' '}
-                      <span style={{ fontStyle: 'italic' }}>{structured.whatChanges}</span>
-                    </p>
+                        <span style={{ ...actionMapRowLabel, fontStyle: 'normal' }}>WHAT CHANGES</span>{' '}
+                        <span style={{ fontStyle: 'italic' }}>{structured.whatChanges}</span>
+                      </p>
+                    </div>
                   </>
                 ) : (
                   <>
