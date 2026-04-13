@@ -57,14 +57,40 @@ function formatAssessmentDate(iso) {
   });
 }
 
-function issuedToLine(user) {
-  if (!user) return 'Participant';
+/** True if full_name, name, or display_name is present in auth metadata. */
+function hasRealNameInMetadata(user) {
+  if (!user) return false;
   const meta = user.user_metadata || {};
-  const name = [meta.full_name, meta.name, meta.display_name].find(
+  return [meta.full_name, meta.name, meta.display_name].some(
     (n) => typeof n === 'string' && n.trim() !== ''
   );
-  if (name) return name.trim();
-  if (user.email) return user.email;
+}
+
+/** Local part of email → title-style name (e.g. jl.jones → Jl Jones). */
+function formatLocalNameFromEmail(email) {
+  if (!email || typeof email !== 'string') return 'Participant';
+  const local = email.split('@')[0] || '';
+  const spaced = local.replace(/[._]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!spaced) return 'Participant';
+  const formatted = spaced
+    .split(/\s+/)
+    .map((part) => {
+      if (!part) return '';
+      return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+    })
+    .filter(Boolean)
+    .join(' ');
+  return formatted || 'Participant';
+}
+
+function certificateRecipientName(user) {
+  if (!user) return 'Participant';
+  const meta = user.user_metadata || {};
+  const fromMeta = [meta.full_name, meta.name, meta.display_name].find(
+    (n) => typeof n === 'string' && n.trim() !== ''
+  );
+  if (fromMeta) return fromMeta.trim();
+  if (user.email) return formatLocalNameFromEmail(user.email);
   return 'Participant';
 }
 
@@ -75,6 +101,9 @@ export default function CertificatePage() {
   const [submission, setSubmission] = useState(null);
   const [error, setError] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [nameSaving, setNameSaving] = useState(false);
+  const [nameError, setNameError] = useState(null);
 
   const supabase = useMemo(
     () =>
@@ -132,6 +161,34 @@ export default function CertificatePage() {
 
   const handlePrint = () => {
     if (typeof window !== 'undefined') window.print();
+  };
+
+  const handleSaveCertificateName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) {
+      setNameError('Enter a name.');
+      return;
+    }
+    setNameError(null);
+    setNameSaving(true);
+    try {
+      const { data, error: updErr } = await supabase.auth.updateUser({
+        data: { full_name: trimmed }
+      });
+      if (updErr) throw updErr;
+      const next = data?.user ?? null;
+      if (next) {
+        setUser(next);
+      } else {
+        const { data: auth } = await supabase.auth.getUser();
+        if (auth?.user) setUser(auth.user);
+      }
+      setNameInput('');
+    } catch (e) {
+      setNameError(e instanceof Error ? e.message : 'Could not save name.');
+    } finally {
+      setNameSaving(false);
+    }
   };
 
   const accent = verdictAccentColor(submission?.verdict);
@@ -200,6 +257,8 @@ export default function CertificatePage() {
   }
 
   const primaryFinding = String(submission.primary_finding || '—').trim();
+  const recipientName = certificateRecipientName(user);
+  const showNamePrompt = user && !hasRealNameInMetadata(user);
 
   return (
     <div
@@ -211,6 +270,67 @@ export default function CertificatePage() {
         color: TEXT
       }}
     >
+      {showNamePrompt ? (
+        <div
+          className="certificate-hide-print"
+          style={{
+            maxWidth: 680,
+            margin: '0 auto 20px',
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'stretch',
+            gap: 12,
+            justifyContent: 'center'
+          }}
+        >
+          <input
+            id="certificate-full-name"
+            type="text"
+            value={nameInput}
+            onChange={(e) => {
+              setNameInput(e.target.value);
+              if (nameError) setNameError(null);
+            }}
+            placeholder="Add your name to this certificate"
+            aria-label="Add your name to this certificate"
+            autoComplete="name"
+            disabled={nameSaving}
+            style={{
+              flex: '1 1 min(100%, 420px)',
+              padding: '12px 14px',
+              fontFamily: FONT_SANS,
+              fontSize: 15,
+              border: `1px solid ${NAVY}`,
+              borderRadius: 8,
+              color: TEXT
+            }}
+          />
+          <button
+            type="button"
+            onClick={handleSaveCertificateName}
+            disabled={nameSaving}
+            style={{
+              padding: '12px 22px',
+              backgroundColor: nameSaving ? MUTED : TEAL_CERT,
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: 8,
+              fontFamily: FONT_SANS,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: nameSaving ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {nameSaving ? 'Saving…' : 'Save'}
+          </button>
+          {nameError ? (
+            <p style={{ width: '100%', textAlign: 'center', fontSize: 13, color: AMBER, margin: 0 }}>
+              {nameError}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       <div
         style={{
           maxWidth: 680,
@@ -276,7 +396,7 @@ export default function CertificatePage() {
             lineHeight: 1.35
           }}
         >
-          Issued to {issuedToLine(user)}
+          Issued to {recipientName}
         </p>
 
         <p
