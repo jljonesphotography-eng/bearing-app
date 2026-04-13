@@ -87,6 +87,47 @@ function formatEnergy(s) {
   return String(s).replace(/_/g, ' ');
 }
 
+/** Matches extraction format: four lines WHAT — / WHY NOW — / THIS WEEK — / WHAT CHANGES — */
+function parseStructuredActionItem(raw) {
+  const s = raw == null ? '' : String(raw).trim();
+  if (!s) return null;
+  const lines = s.split(/\r?\n/).map((l) => l.trim());
+  const parts = {
+    what: null,
+    whyNow: null,
+    thisWeek: null,
+    whatChanges: null
+  };
+  const sep = '[—:–\\-]'; // em dash, colon, en dash, hyphen-minus
+  for (const line of lines) {
+    if (!line) continue;
+    let m = line.match(new RegExp(`^WHAT\\s*${sep}\\s*(.+)$`, 'i'));
+    if (m) {
+      parts.what = m[1].trim();
+      continue;
+    }
+    m = line.match(new RegExp(`^WHY NOW\\s*${sep}\\s*(.+)$`, 'i'));
+    if (m) {
+      parts.whyNow = m[1].trim();
+      continue;
+    }
+    m = line.match(new RegExp(`^THIS WEEK\\s*${sep}\\s*(.+)$`, 'i'));
+    if (m) {
+      parts.thisWeek = m[1].trim();
+      continue;
+    }
+    m = line.match(new RegExp(`^WHAT CHANGES\\s*${sep}\\s*(.+)$`, 'i'));
+    if (m) {
+      parts.whatChanges = m[1].trim();
+      continue;
+    }
+  }
+  if (parts.what && parts.whyNow && parts.thisWeek && parts.whatChanges) {
+    return parts;
+  }
+  return null;
+}
+
 function hasFullReportAccess(user) {
   if (process.env.NEXT_PUBLIC_REPORT_GATE_BYPASS === 'true') return true;
   return user?.user_metadata?.bearing_report_unlocked === true;
@@ -1083,37 +1124,137 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
             marginBottom: 48
           }}
         >
-          {[submission.action_1, submission.action_2, submission.action_3].map((act, i) => (
-            <div
-              key={i}
-              style={{
-                backgroundColor: WARM_WHITE,
-                border: `1px solid ${NAVY}`,
-                borderRadius: 12,
-                padding: '20px 18px',
-                minHeight: 140
-              }}
-            >
+          {[submission.action_1, submission.action_2, submission.action_3].map((act, i) => {
+            const trimmed = act ? String(act).trim() : '';
+            const structured = trimmed ? parseStructuredActionItem(trimmed) : null;
+            return (
               <div
+                key={i}
                 style={{
-                  fontSize: 11,
-                  fontFamily: FONT_SANS,
-                  letterSpacing: '0.12em',
-                  fontWeight: 700,
-                  color: TEAL,
-                  marginBottom: 12
+                  backgroundColor: WARM_WHITE,
+                  border: `1px solid ${NAVY}`,
+                  borderRadius: 12,
+                  padding: '20px 18px',
+                  minHeight: 140
                 }}
               >
-                ACTION {i + 1}
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontFamily: FONT_SANS,
+                    letterSpacing: '0.12em',
+                    fontWeight: 700,
+                    color: TEAL,
+                    marginBottom: 12
+                  }}
+                >
+                  ACTION {i + 1}
+                </div>
+                {structured ? (
+                  <>
+                    <p
+                      style={{
+                        fontSize: 14,
+                        fontFamily: FONT_SANS,
+                        color: TEXT,
+                        margin: '0 0 14px',
+                        lineHeight: 1.5
+                      }}
+                    >
+                      {structured.what}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontFamily: FONT_SANS,
+                        color: MUTED,
+                        margin: '0 0 10px',
+                        lineHeight: 1.55
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontVariant: 'small-caps',
+                          letterSpacing: '0.08em',
+                          fontWeight: 600
+                        }}
+                      >
+                        Why now:
+                      </span>{' '}
+                      {structured.whyNow}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontFamily: FONT_SANS,
+                        color: AMBER,
+                        margin: '0 0 10px',
+                        lineHeight: 1.55
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontVariant: 'small-caps',
+                          letterSpacing: '0.08em',
+                          fontWeight: 600
+                        }}
+                      >
+                        This week:
+                      </span>{' '}
+                      {structured.thisWeek}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        fontFamily: FONT_SANS,
+                        color: MUTED,
+                        margin: 0,
+                        lineHeight: 1.55,
+                        fontStyle: 'italic'
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontVariant: 'small-caps',
+                          letterSpacing: '0.08em',
+                          fontWeight: 600,
+                          fontStyle: 'normal'
+                        }}
+                      >
+                        What changes:
+                      </span>{' '}
+                      <span style={{ fontStyle: 'italic' }}>{structured.whatChanges}</span>
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p
+                      style={{
+                        fontSize: 14,
+                        fontFamily: FONT_SANS,
+                        color: TEXT,
+                        margin: '0 0 12px',
+                        lineHeight: 1.5
+                      }}
+                    >
+                      {trimmed || '—'}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 12,
+                        fontFamily: FONT_SANS,
+                        color: MUTED,
+                        margin: 0,
+                        fontStyle: 'italic'
+                      }}
+                    >
+                      Start this week.
+                    </p>
+                  </>
+                )}
               </div>
-              <p style={{ fontSize: 14, fontFamily: FONT_SANS, color: TEXT, margin: '0 0 12px', lineHeight: 1.5 }}>
-                {act ? String(act).trim() : '—'}
-              </p>
-              <p style={{ fontSize: 12, fontFamily: FONT_SANS, color: MUTED, margin: 0, fontStyle: 'italic' }}>
-                Start this week.
-              </p>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {showAiCollaborationGuide ? (
