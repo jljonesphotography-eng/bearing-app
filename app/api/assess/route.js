@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
+import { isAnthropicOverloadOrServerError } from '@/app/lib/anthropic-capacity';
 
 const SYSTEM_PROMPT = `You are Bearing — a Human Capability Intelligence system. You observe how people actually think and work. You do not ask people to rate themselves. You listen to what they do, what they reach for, and what they notice — and you build an accurate capability map from that observation.
 You are not a quiz. You are a conversation with someone who is genuinely interested in this person's work.
@@ -345,8 +346,13 @@ export async function POST(req) {
 
     return NextResponse.json(payload, { status: 200 });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Assessment request failed.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[api/assess]', err);
+    if (isAnthropicOverloadOrServerError(err)) {
+      return NextResponse.json({ error: 'ai_capacity' }, { status: 503 });
+    }
+    return NextResponse.json(
+      { error: 'Something went wrong. Please try again.' },
+      { status: 500 }
+    );
   }
 }

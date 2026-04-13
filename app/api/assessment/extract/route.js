@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
+import { isAnthropicOverloadOrServerError } from '@/app/lib/anthropic-capacity';
 
 const MODEL = 'claude-sonnet-4-20250514';
 
@@ -169,8 +170,13 @@ export async function POST(req) {
 
     return NextResponse.json({ result: parsed }, { status: 200 });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : 'Assessment extraction failed.';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('[api/assessment/extract]', err);
+    if (isAnthropicOverloadOrServerError(err)) {
+      return NextResponse.json({ error: 'ai_capacity' }, { status: 503 });
+    }
+    return NextResponse.json(
+      { error: 'Could not extract assessment results. Please try again.' },
+      { status: 500 }
+    );
   }
 }

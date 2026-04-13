@@ -21,6 +21,79 @@ const START_USER_MESSAGE =
 /** System prompt closes the delivered assessment with this sentence — required before "Get My Assessment". */
 const ASSESSMENT_CLOSING_PHRASE = 'What you do with that is yours.';
 
+const ASSESS_AI_CAPACITY_MESSAGE =
+  "Our AI engine is currently processing a high volume of assessments. We are holding your place in line—please wait 10 seconds and try clicking 'Send' again.";
+
+function deepHasOverloadedInPayload(obj, depth = 0) {
+  if (depth > 6 || obj == null || typeof obj !== 'object') return false;
+  if (obj.type === 'overloaded_error') return true;
+  if (obj.error?.type === 'overloaded_error') return true;
+  for (const v of Object.values(obj)) {
+    if (v != null && typeof v === 'object' && deepHasOverloadedInPayload(v, depth + 1)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isAssessApiCapacityResponse(res, data) {
+  if (data?.error === 'ai_capacity') return true;
+  if (res.status === 529 || res.status >= 500) return true;
+  if (deepHasOverloadedInPayload(data)) return true;
+  const raw = data?.error;
+  if (typeof raw === 'string') {
+    if (/overloaded/i.test(raw) || /overloaded_error/i.test(raw)) return true;
+    if (/\b529\b/.test(raw)) return true;
+    const t = raw.trim();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      try {
+        const j = JSON.parse(raw);
+        if (deepHasOverloadedInPayload(j)) return true;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  if (raw != null && typeof raw === 'object' && deepHasOverloadedInPayload(raw)) {
+    return true;
+  }
+  return false;
+}
+
+function userFacingAssessError(res, data, genericFallback) {
+  if (isAssessApiCapacityResponse(res, data)) {
+    return ASSESS_AI_CAPACITY_MESSAGE;
+  }
+  const raw = data?.error;
+  if (typeof raw === 'string' && raw.length > 0) {
+    const trimmed = raw.trim();
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      return genericFallback;
+    }
+    return raw;
+  }
+  return genericFallback;
+}
+
+/** Last line of defense if the thrown Error.message still contains Anthropic JSON. */
+function normalizeCaughtAssessError(e) {
+  const raw = e instanceof Error ? e.message : String(e);
+  if (
+    /overloaded_error/i.test(raw) ||
+    /\b529\b/.test(raw) ||
+    /"type"\s*:\s*"overloaded_error"/i.test(raw)
+  ) {
+    return ASSESS_AI_CAPACITY_MESSAGE;
+  }
+  try {
+    const j = JSON.parse(raw);
+    if (deepHasOverloadedInPayload(j)) return ASSESS_AI_CAPACITY_MESSAGE;
+  } catch {
+    /* ignore */
+  }
+  return raw;
+}
+
 function stripAssessmentTags(text) {
   if (!text) return '';
   return text
@@ -155,9 +228,19 @@ export default function AssessmentPage() {
             : { messages: messagesPayload }
         )
       });
-      const data = await res.json().catch(() => ({}));
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        if (res.status >= 500) {
+          throw new Error(ASSESS_AI_CAPACITY_MESSAGE);
+        }
+        throw new Error('Assessment request failed.');
+      }
       if (!res.ok) {
-        throw new Error(data.error || 'Assessment request failed.');
+        throw new Error(
+          userFacingAssessError(res, data, 'Assessment request failed.')
+        );
       }
       return data;
     },
@@ -262,7 +345,7 @@ export default function AssessmentPage() {
         }
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Something went wrong.');
+          setError(normalizeCaughtAssessError(e));
         }
       } finally {
         if (!cancelled) setAwaiting(false);
@@ -308,7 +391,15 @@ export default function AssessmentPage() {
         await saveResultAndRedirect(result);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(normalizeCaughtAssessError(e));
+      setApiMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last?.role === 'user' && last.content === trimmed) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      setInput(trimmed);
     } finally {
       setAwaiting(false);
     }
@@ -344,9 +435,23 @@ export default function AssessmentPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: apiMessages })
       });
-      const data = await res.json().catch(() => ({}));
+      let data = {};
+      try {
+        data = await res.json();
+      } catch {
+        if (res.status >= 500) {
+          throw new Error(ASSESS_AI_CAPACITY_MESSAGE);
+        }
+        throw new Error('Could not extract assessment results.');
+      }
       if (!res.ok) {
-        throw new Error(data?.error || 'Could not extract assessment results.');
+        throw new Error(
+          userFacingAssessError(
+            res,
+            data,
+            'Could not extract assessment results. Please try again.'
+          )
+        );
       }
 
       const result = data?.result;
@@ -356,7 +461,7 @@ export default function AssessmentPage() {
 
       await saveResultAndRedirect(result);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(normalizeCaughtAssessError(e));
     } finally {
       setSavingAssessment(false);
       setAwaiting(false);
@@ -424,12 +529,21 @@ export default function AssessmentPage() {
             role="alert"
             style={{
               backgroundColor: SURFACE,
-              border: '1px solid rgba(217, 119, 6, 0.45)',
-              color: TEXT,
-              padding: '12px 14px',
+              border:
+                error === ASSESS_AI_CAPACITY_MESSAGE
+                  ? '1px solid rgba(27, 58, 107, 0.22)'
+                  : '1px solid rgba(217, 119, 6, 0.45)',
+              color: error === ASSESS_AI_CAPACITY_MESSAGE ? NAVY : TEXT,
+              padding: '14px 16px',
               borderRadius: 10,
               marginBottom: 16,
-              fontSize: 14
+              fontSize: 14,
+              fontFamily: FONT_SANS,
+              lineHeight: 1.55,
+              textAlign: error === ASSESS_AI_CAPACITY_MESSAGE ? 'center' : 'left',
+              maxWidth: error === ASSESS_AI_CAPACITY_MESSAGE ? 520 : undefined,
+              marginLeft: error === ASSESS_AI_CAPACITY_MESSAGE ? 'auto' : undefined,
+              marginRight: error === ASSESS_AI_CAPACITY_MESSAGE ? 'auto' : undefined
             }}
           >
             {error}
