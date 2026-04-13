@@ -88,6 +88,37 @@ function displayFromApiMessages(apiMessages) {
   );
 }
 
+const DIM_PLAIN_SEP = '||PLAIN||';
+
+/** Aligns with /api/assessment/extract: dim_* stores observed only; dim_*_plain stores coach voice. */
+function normalizeDimensionFieldsForSave(result) {
+  if (!result || typeof result !== 'object') return {};
+  const keys = ['judgment', 'relational', 'synthesis', 'creative', 'adaptive'];
+  const out = {};
+  for (const k of keys) {
+    const dimKey = `dim_${k}`;
+    const plainKey = `${dimKey}_plain`;
+    const existingPlain = result[plainKey];
+    if (existingPlain != null && String(existingPlain).trim() !== '') {
+      const obs = result[dimKey];
+      out[dimKey] =
+        obs != null && String(obs).trim() !== '' ? String(obs).trim() : null;
+      out[plainKey] = String(existingPlain).trim();
+      continue;
+    }
+    const combined = result[dimKey] == null ? '' : String(result[dimKey]);
+    const i = combined.indexOf(DIM_PLAIN_SEP);
+    if (i === -1) {
+      out[dimKey] = combined.trim() || null;
+      out[plainKey] = null;
+    } else {
+      out[dimKey] = combined.slice(0, i).trim() || null;
+      out[plainKey] = combined.slice(i + DIM_PLAIN_SEP.length).trim() || null;
+    }
+  }
+  return out;
+}
+
 export default function AssessmentPage() {
   const router = useRouter();
   const bottomRef = useRef(null);
@@ -154,6 +185,8 @@ export default function AssessmentPage() {
           ? scoreRaw
           : Number.parseFloat(String(scoreRaw));
 
+      const dims = normalizeDimensionFieldsForSave(result);
+
       const insertData = {
         user_id: user.id,
         total_score: Number.isFinite(totalScore) ? totalScore : null,
@@ -165,11 +198,16 @@ export default function AssessmentPage() {
         action_3: result.action_3 ?? null,
         energy_profile: result.energy_profile ?? null,
         status: 'completed',
-        ...(result.dim_judgment && { dim_judgment: result.dim_judgment }),
-        ...(result.dim_relational && { dim_relational: result.dim_relational }),
-        ...(result.dim_synthesis && { dim_synthesis: result.dim_synthesis }),
-        ...(result.dim_creative && { dim_creative: result.dim_creative }),
-        ...(result.dim_adaptive && { dim_adaptive: result.dim_adaptive })
+        ...(dims.dim_judgment && { dim_judgment: dims.dim_judgment }),
+        ...(dims.dim_relational && { dim_relational: dims.dim_relational }),
+        ...(dims.dim_synthesis && { dim_synthesis: dims.dim_synthesis }),
+        ...(dims.dim_creative && { dim_creative: dims.dim_creative }),
+        ...(dims.dim_adaptive && { dim_adaptive: dims.dim_adaptive }),
+        ...(dims.dim_judgment_plain && { dim_judgment_plain: dims.dim_judgment_plain }),
+        ...(dims.dim_relational_plain && { dim_relational_plain: dims.dim_relational_plain }),
+        ...(dims.dim_synthesis_plain && { dim_synthesis_plain: dims.dim_synthesis_plain }),
+        ...(dims.dim_creative_plain && { dim_creative_plain: dims.dim_creative_plain }),
+        ...(dims.dim_adaptive_plain && { dim_adaptive_plain: dims.dim_adaptive_plain })
       };
 
       console.log('[Bearing assess] Saving to Supabase', insertData);

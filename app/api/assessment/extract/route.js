@@ -3,7 +3,36 @@ import { NextResponse } from 'next/server';
 
 const MODEL = 'claude-sonnet-4-20250514';
 
-const SYSTEM_PROMPT = `You are extracting structured assessment results from a Human Capability Intelligence conversation. Read the full conversation and extract the following fields as JSON with no preamble and no markdown backticks: verdict (exactly one of: WELL_POSITIONED, TRANSITION_ADVISED, EXPOSED), primary_finding (one specific sentence naming the primary Zone 1 capability observed), zone (exactly one of: Zone 1, Zone 2, Zone 3, Zone 4), energy_profile (exactly one of: Build, Explore, Optimize, Honest Conversation), action_1 (first specific action item), action_2 (second specific action item), action_3 (third specific action item), dim_judgment (one sentence on what was observed about their judgment depth), dim_relational (one sentence on relational intelligence observed), dim_synthesis (one sentence on synthesis capacity observed), dim_creative (one sentence on creative originality observed), dim_adaptive (one sentence on adaptive execution observed). Base everything strictly on what was observed in this conversation.`;
+const PLAIN_DELIM = '||PLAIN||';
+
+const SYSTEM_PROMPT = `You are extracting structured assessment results from a Human Capability Intelligence conversation. Read the full conversation and extract the following fields as JSON with no preamble and no markdown backticks. Base everything strictly on what was observed in this conversation.
+
+Required JSON keys: verdict, primary_finding, zone, energy_profile, action_1, action_2, action_3, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive.
+
+verdict: exactly one of: WELL_POSITIONED, TRANSITION_ADVISED, EXPOSED
+primary_finding: one specific sentence naming the primary Zone 1 capability observed
+zone: exactly one of: Zone 1, Zone 2, Zone 3, Zone 4
+energy_profile: exactly one of: Build, Explore, Optimize, Honest Conversation
+
+DIMENSION FINDINGS (dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive)
+For each dimension, write one sentence on what was observed for that dimension (judgment depth, relational intelligence, synthesis capacity, creative originality, adaptive execution respectively). Each must be specific to this person and evidence-based; never generic.
+
+Each dimension finding must be written in two parts, separated by the delimiter ||PLAIN||
+Part 1 (before ||PLAIN||): The observed finding. Professional, specific, evidence-based. Written in the current style — what was actually demonstrated, with zone classification. Example: 'Strong Zone 1 — demonstrated the ability to construct new frameworks when existing patterns failed, with consistent evidence of judgment under relational and informational ambiguity.'
+Part 2 (after ||PLAIN||): The plain language translation. Written as a trusted friend who knows this person would speak. No jargon. No zone numbers. No technical terms. What it means in real life, right now, for this specific person. Warm but not soft. Direct but not clinical. Example: 'You make good calls in situations where most people freeze. People come to you specifically when they don't know who else to ask — that's not common, and it's not something AI can replicate.'
+The plain language part should feel like the most useful thing a coach could say to this person in this moment. Never generic. Always specific to what was actually observed.
+
+Each dim_* value in the JSON must be a single string in the form: Part1||PLAIN||Part2 (use the exact delimiter ||PLAIN|| with no spaces inside the delimiter).
+
+ACTION ITEMS (action_1, action_2, action_3)
+Each action item must include four elements on separate lines:
+Line 1: WHAT — the specific action (one sentence, direct)
+Line 2: WHY NOW — why this matters at this specific moment in their career, given their profile (one sentence)
+Line 3: THIS WEEK — what doing this actually looks like in practice in the next 7 days (one concrete example)
+Line 4: WHAT CHANGES — what will be different when they do this consistently (one sentence, specific to their finding)
+Format each action item with these four lines. Make it feel like a coach who has just spent 45 minutes with this person, not a generic recommendation.
+
+Each action_* value in the JSON must be one string; use newline characters between the four lines within that string.`;
 
 function textFromMessage(response) {
   const blocks = response?.content;
@@ -44,6 +73,31 @@ function parseExtractedJson(text) {
     parsed = JSON.parse(jsonStr.slice(start, end + 1));
   }
 
+  return parsed;
+}
+
+/** Split model output "observed||PLAIN||plain" into dim_* (observed only) and dim_*_plain. */
+function applyDimensionPlainSplit(parsed) {
+  const dimKeys = ['dim_judgment', 'dim_relational', 'dim_synthesis', 'dim_creative', 'dim_adaptive'];
+  for (const key of dimKeys) {
+    const raw = parsed[key];
+    if (raw == null) continue;
+    const s = String(raw).trim();
+    if (!s) {
+      parsed[key] = null;
+      continue;
+    }
+    const idx = s.indexOf(PLAIN_DELIM);
+    if (idx === -1) {
+      parsed[key] = s;
+      parsed[`${key}_plain`] = null;
+      continue;
+    }
+    const observed = s.slice(0, idx).trim();
+    const plain = s.slice(idx + PLAIN_DELIM.length).trim();
+    parsed[key] = observed || null;
+    parsed[`${key}_plain`] = plain || null;
+  }
   return parsed;
 }
 
@@ -109,6 +163,7 @@ export async function POST(req) {
 
     const text = textFromMessage(response);
     const parsed = parseExtractedJson(text);
+    applyDimensionPlainSplit(parsed);
 
     if (parsed.energy_profile != null) {
       parsed.energy_profile = normalizeEnergyProfile(parsed.energy_profile);
