@@ -11,9 +11,11 @@ const SYSTEM_PROMPT = `You are extracting structured assessment results from a H
 Required JSON keys: verdict, primary_finding, zone, energy_profile, action_1, action_2, action_3, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive.
 
 JSON output field format:
+STRICT FORMAT BLOCK FOR ACTIONS:
 "action_1": "STRICT FORMAT: You must output exactly four lines for this action item, each starting with the specific label followed by a long dash. \nWHAT — [A short, punchy strategy name]\nWHY NOW — [Why this is urgent based on their specific AI displacement risks]\nTHIS WEEK — [One concrete, non-generic step they can take in the next 7 days]\nWHAT CHANGES — [The specific behavioral or professional shift this creates]\n\nDo not include any other text or conversational filler."
 "action_2": "STRICT FORMAT: You must output exactly four lines for this action item, each starting with the specific label followed by a long dash. \nWHAT — [A short, punchy strategy name]\nWHY NOW — [Why this is urgent based on their specific AI displacement risks]\nTHIS WEEK — [One concrete, non-generic step they can take in the next 7 days]\nWHAT CHANGES — [The specific behavioral or professional shift this creates]\n\nDo not include any other text or conversational filler."
 "action_3": "STRICT FORMAT: You must output exactly four lines for this action item, each starting with the specific label followed by a long dash. \nWHAT — [A short, punchy strategy name]\nWHY NOW — [Why this is urgent based on their specific AI displacement risks]\nTHIS WEEK — [One concrete, non-generic step they can take in the next 7 days]\nWHAT CHANGES — [The specific behavioral or professional shift this creates]\n\nDo not include any other text or conversational filler."
+DO NOT include any introductory text or closing remarks. Start every action item directly with the word WHAT followed by a long dash (—).
 
 verdict: exactly one of: WELL_POSITIONED, TRANSITION_ADVISED, EXPOSED
 primary_finding: one specific sentence naming the primary Zone 1 capability observed
