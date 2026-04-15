@@ -1,5 +1,6 @@
 'use client';
 
+import BearingThinkingOverlay from '@/app/components/BearingThinkingOverlay';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -86,7 +87,7 @@ export default function DashboardPage() {
         const { data, error: scoreError } = await supabase
           .from('assessment_submissions')
           .select(
-            'total_score, verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, created_at'
+            'total_score, capability_score, verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, created_at'
           )
           .eq('user_id', user.id)
           .order('created_at', { ascending: false })
@@ -100,6 +101,7 @@ export default function DashboardPage() {
             latest
               ? {
                   total_score: roundScore(latest.total_score),
+                  capability_score: roundScore(latest.capability_score),
                   verdict: latest.verdict ?? null,
                   primary_finding: latest.primary_finding ?? null,
                   zone: latest.zone ?? null,
@@ -236,6 +238,7 @@ export default function DashboardPage() {
         fontFamily: FONT_SANS
       }}
     >
+      {loading ? <BearingThinkingOverlay /> : null}
       <header
         style={{
           backgroundColor: COLORS.navy,
@@ -298,9 +301,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {loading ? (
-          <div style={{ color: COLORS.muted, fontSize: 14 }}>Loading your results…</div>
-        ) : (
+        {loading ? null : (
           <>
             {hasPrimary && (
               <section

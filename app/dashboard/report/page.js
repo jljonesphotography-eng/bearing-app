@@ -1,8 +1,10 @@
 'use client';
 
+import BearingThinkingOverlay from '@/app/components/BearingThinkingOverlay';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Route, Telescope } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
 const DEEP_DARK = '#0a0a12';
@@ -13,6 +15,9 @@ const LABEL_MUTED = '#6b6860';
 const NAVY = '#1B3A6B';
 const GROUNDWORK_TEAL = '#0A5F63';
 const TEAL = '#0D7377';
+/** Lucide section headers (Watch list, Action map) — small, refined stroke */
+const SECTION_HEADER_ICON_PX = 15;
+const SECTION_HEADER_ICON_STROKE = 1.5;
 const AMBER = '#D97706';
 const SURFACE = '#ffffff';
 const ZONE_MUTED = '#d4d1c8';
@@ -83,6 +88,60 @@ function reportVerdictHeadline(verdict) {
 function parseZoneNumber(zone) {
   const m = String(zone || '').match(/[1-4]/);
   return m ? parseInt(m[0], 10) : null;
+}
+
+/** AI-derived 0–100 from written responses; null if missing or invalid. */
+function normalizeCapabilityScore(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = typeof value === 'number' ? value : Number.parseFloat(String(value));
+  if (!Number.isFinite(n)) return null;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
+
+const SCROLL_REVEAL_MS = 620;
+const SCROLL_REVEAL_SHIFT_PX = 14;
+
+/** Fade in + slight slide-up when the block enters the viewport (once). */
+function ScrollReveal({ children, style, delayMs = 0 }) {
+  const ref = useRef(null);
+  const [inView, setInView] = useState(false);
+
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setInView(true);
+            obs.disconnect();
+            break;
+          }
+        }
+      },
+      { root: null, rootMargin: '0px 0px -8% 0px', threshold: 0.06 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div
+      ref={ref}
+      style={{
+        opacity: inView ? 1 : 0,
+        transform: inView ? 'translateY(0)' : `translateY(${SCROLL_REVEAL_SHIFT_PX}px)`,
+        transition: `opacity ${SCROLL_REVEAL_MS}ms ease-out ${delayMs}ms, transform ${SCROLL_REVEAL_MS}ms ease-out ${delayMs}ms`,
+        ...style
+      }}
+    >
+      {children}
+    </div>
+  );
 }
 
 function formatEnergy(s) {
@@ -215,25 +274,32 @@ function capabilityArcPathD() {
   return `M ${sx} ${sy} A ${GAUGE_R} ${GAUGE_R} 0 1 1 ${ex} ${ey}`;
 }
 
-function CapabilityConfidenceGauge({ vc }) {
-  const fillRef = useRef(null);
-  const animatedRef = useRef(false);
+/** Logical path length for dash math; ring fill = (100 - strokeDashoffset) when dash = 100. */
+const GAUGE_PATH_LENGTH = 100;
+const GAUGE_FILL_DURATION_S = 1.5;
+
+function CapabilityConfidenceGauge({ vc, capabilityScore }) {
   const pathD = useMemo(() => capabilityArcPathD(), []);
 
-  useLayoutEffect(() => {
-    const path = fillRef.current;
-    if (!path || animatedRef.current) return;
-    animatedRef.current = true;
-    const len = path.getTotalLength();
-    path.style.strokeDasharray = String(len);
-    path.style.strokeDashoffset = String(len);
+  /** 0–100 aligned with submission.capability_score; 0 when missing (empty ring). */
+  const fillAmount = useMemo(() => {
+    if (capabilityScore == null) return 0;
+    return Math.max(0, Math.min(100, capabilityScore));
+  }, [capabilityScore]);
+
+  const [revealedFill, setRevealedFill] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        path.style.transition = 'stroke-dashoffset 1.2s ease-out';
-        path.style.strokeDashoffset = String(len * (1 - 0.78));
+        if (!cancelled) setRevealedFill(fillAmount);
       });
     });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [fillAmount]);
 
   const arcTop = GAUGE_CY - GAUGE_R;
   const arcChordY = GAUGE_CY - GAUGE_R * Math.sin((150 * Math.PI) / 180);
@@ -262,12 +328,17 @@ function CapabilityConfidenceGauge({ vc }) {
           strokeLinecap="round"
         />
         <path
-          ref={fillRef}
           d={pathD}
+          pathLength={GAUGE_PATH_LENGTH}
           fill="none"
           stroke={vc}
           strokeWidth={10}
           strokeLinecap="round"
+          strokeDasharray={GAUGE_PATH_LENGTH}
+          strokeDashoffset={GAUGE_PATH_LENGTH - revealedFill}
+          style={{
+            transition: `stroke-dashoffset ${GAUGE_FILL_DURATION_S}s ease-out`
+          }}
         />
         <text
           x={GAUGE_CX}
@@ -276,11 +347,12 @@ function CapabilityConfidenceGauge({ vc }) {
           dominantBaseline="middle"
           style={{
             fontFamily: FONT_MONO,
-            fontSize: 28,
+            fontSize: capabilityScore == null ? 22 : 36,
+            fontWeight: capabilityScore == null ? 500 : 600,
             fill: '#ffffff'
           }}
         >
-          78%
+          {capabilityScore == null ? '—' : `${capabilityScore}%`}
         </text>
       </svg>
       <p
@@ -296,13 +368,25 @@ function CapabilityConfidenceGauge({ vc }) {
           lineHeight: 1.3
         }}
       >
-        CAPABILITY CONFIDENCE
+        EVIDENCE IN YOUR ANSWERS
       </p>
     </div>
   );
 }
 
-function Section1VerdictFull({ submission, vc }) {
+function Section1VerdictFull({
+  submission,
+  vc,
+  strategicPriorityPhase = 'idle',
+  strategicPriorityText = null
+}) {
+  const capabilityScore = normalizeCapabilityScore(submission?.capability_score);
+  const showStrategicLoading = strategicPriorityPhase === 'loading';
+  const directive =
+    strategicPriorityText != null && String(strategicPriorityText).trim() !== ''
+      ? String(strategicPriorityText).trim()
+      : null;
+
   return (
     <section
       style={{
@@ -344,12 +428,72 @@ function Section1VerdictFull({ submission, vc }) {
         style={{
           maxWidth: 560,
           width: '100%',
-          margin: '32px auto 40px',
+          margin: '32px auto 0',
           textAlign: 'center'
         }}
       >
-        <CapabilityConfidenceGauge vc={vc} />
+        <CapabilityConfidenceGauge vc={vc} capabilityScore={capabilityScore} />
       </div>
+
+      {(showStrategicLoading || (strategicPriorityPhase === 'ready' && directive)) && (
+        <div style={{ maxWidth: 560, width: '100%', margin: '28px auto 0', textAlign: 'left' }}>
+          {showStrategicLoading && (
+            <p
+              style={{
+                fontFamily: FONT_SANS,
+                fontSize: 14,
+                fontWeight: 500,
+                color: 'rgba(255,255,255,0.55)',
+                margin: 0,
+                lineHeight: 1.5,
+                letterSpacing: '0.02em'
+              }}
+            >
+              Synthesizing your strategic priority…
+            </p>
+          )}
+          {strategicPriorityPhase === 'ready' && directive ? (
+            <div
+              role="region"
+              aria-label="Strategic priority for the next 30 days"
+              style={{
+                borderLeft: `4px solid ${STRATEGIC_PRIORITY_BORDER}`,
+                backgroundColor: STRATEGIC_PRIORITY_BG,
+                padding: '22px 24px 24px',
+                borderRadius: '0 14px 14px 0',
+                boxShadow: '0 8px 28px rgba(0,0,0,0.2)'
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: FONT_SANS,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  letterSpacing: '0.18em',
+                  textTransform: 'uppercase',
+                  color: STRATEGIC_PRIORITY_BORDER,
+                  margin: '0 0 14px',
+                  lineHeight: 1.35
+                }}
+              >
+                STRATEGIC PRIORITY: NEXT 30 DAYS
+              </p>
+              <p
+                style={{
+                  fontFamily: FONT_SANS,
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: TEXT,
+                  margin: 0,
+                  lineHeight: 1.5
+                }}
+              >
+                {directive}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      )}
     </section>
   );
 }
@@ -364,11 +508,28 @@ const labelTealCaps = {
   marginBottom: 12
 };
 
-function AiCollaborationGuideSection({ verdict, primary_finding, zone, energy_profile }) {
-  const [phase, setPhase] = useState('loading');
+/** API field `next_skill` — product copy refers to this as the strategic / build-next directive. */
+const STRATEGIC_PRIORITY_BORDER = '#0d7377';
+/** Very light teal-tinted surface (organic modern) */
+const STRATEGIC_PRIORITY_BG = '#ecf6f6';
+
+function useAiCollaborationGuide({
+  enabled,
+  verdict,
+  primary_finding,
+  zone,
+  energy_profile
+}) {
+  const [phase, setPhase] = useState('idle');
   const [guide, setGuide] = useState(null);
 
   useEffect(() => {
+    if (!enabled) {
+      setPhase('idle');
+      setGuide(null);
+      return;
+    }
+
     let cancelled = false;
 
     async function run() {
@@ -412,8 +573,12 @@ function AiCollaborationGuideSection({ verdict, primary_finding, zone, energy_pr
     return () => {
       cancelled = true;
     };
-  }, [verdict, primary_finding, zone, energy_profile]);
+  }, [enabled, verdict, primary_finding, zone, energy_profile]);
 
+  return { phase, guide };
+}
+
+function AiCollaborationGuideSection({ phase, guide }) {
   return (
     <div style={{ marginBottom: 48 }}>
       <p style={{ ...labelStyle(), marginBottom: phase === 'loading' ? 8 : 12 }}>AI COLLABORATION GUIDE</p>
@@ -432,21 +597,23 @@ function AiCollaborationGuideSection({ verdict, primary_finding, zone, energy_pr
 
       {phase === 'ready' && guide && (
         <>
-          <p style={labelTealCaps}>WHERE AI IS MOVING IN YOUR DOMAIN</p>
-          <div
-            style={{
-              backgroundColor: WARM_WHITE,
-              borderLeft: `4px solid ${NAVY}`,
-              borderRadius: '0 10px 10px 0',
-              padding: '20px 24px',
-              marginBottom: 32,
-              boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
-            }}
-          >
-            <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>
-              {guide.domain_shift}
-            </p>
-          </div>
+          <ScrollReveal style={{ marginBottom: 32 }}>
+            <p style={labelTealCaps}>WHERE AI IS MOVING IN YOUR DOMAIN</p>
+            <div
+              style={{
+                backgroundColor: WARM_WHITE,
+                borderLeft: `4px solid ${NAVY}`,
+                borderRadius: '0 10px 10px 0',
+                padding: '20px 24px',
+                marginTop: 12,
+                boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
+              }}
+            >
+              <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>
+                {guide.domain_shift}
+              </p>
+            </div>
+          </ScrollReveal>
 
           <p style={{ ...labelTealCaps, marginBottom: 16 }}>HOW TO USE AI TO AMPLIFY YOUR CAPABILITY</p>
           <div
@@ -454,60 +621,37 @@ function AiCollaborationGuideSection({ verdict, primary_finding, zone, energy_pr
               display: 'grid',
               gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
               gap: 16,
-              marginBottom: 32
+              marginBottom: 0
             }}
           >
             {guide.amplification_methods.map((method, i) => (
-              <div
-                key={i}
-                style={{
-                  backgroundColor: WARM_WHITE,
-                  border: `1px solid ${NAVY}`,
-                  borderRadius: 12,
-                  padding: '20px 18px'
-                }}
-              >
+              <ScrollReveal key={i} delayMs={i * 70}>
                 <div
                   style={{
-                    fontSize: 11,
-                    fontFamily: FONT_SANS,
-                    letterSpacing: '0.12em',
-                    fontWeight: 700,
-                    color: TEAL,
-                    marginBottom: 12
+                    backgroundColor: WARM_WHITE,
+                    border: `1px solid ${NAVY}`,
+                    borderRadius: 12,
+                    padding: '20px 18px'
                   }}
                 >
-                  METHOD {i + 1}
+                  <div
+                    style={{
+                      fontSize: 11,
+                      fontFamily: FONT_SANS,
+                      letterSpacing: '0.12em',
+                      fontWeight: 700,
+                      color: TEAL,
+                      marginBottom: 12
+                    }}
+                  >
+                    METHOD {i + 1}
+                  </div>
+                  <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.5 }}>
+                    {method}
+                  </p>
                 </div>
-                <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.5 }}>
-                  {method}
-                </p>
-              </div>
+              </ScrollReveal>
             ))}
-          </div>
-
-          <p style={{ ...labelTealCaps, marginBottom: 12 }}>BUILD THIS NEXT — 30 DAYS</p>
-          <div
-            style={{
-              borderLeft: `4px solid ${TEAL}`,
-              backgroundColor: WARM_WHITE,
-              padding: '20px 24px',
-              borderRadius: '0 10px 10px 0',
-              boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
-            }}
-          >
-            <p
-              style={{
-                fontFamily: FONT_SANS,
-                fontSize: 16,
-                fontWeight: 700,
-                color: TEXT,
-                margin: 0,
-                lineHeight: 1.55
-              }}
-            >
-              {guide.next_skill}
-            </p>
           </div>
         </>
       )}
@@ -593,17 +737,19 @@ function ExposedAcknowledgmentSection({ primary_finding, zone }) {
         </p>
       )}
       {phase === 'ready' && ack && (
-        <div
-          style={{
-            backgroundColor: '#faf9f6',
-            borderLeft: `4px solid ${GROUNDWORK_TEAL}`,
-            borderRadius: '0 10px 10px 0',
-            padding: '20px 24px',
-            boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
-          }}
-        >
-          <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{ack}</p>
-        </div>
+        <ScrollReveal>
+          <div
+            style={{
+              backgroundColor: '#faf9f6',
+              borderLeft: `4px solid ${GROUNDWORK_TEAL}`,
+              borderRadius: '0 10px 10px 0',
+              padding: '20px 24px',
+              boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
+            }}
+          >
+            <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{ack}</p>
+          </div>
+        </ScrollReveal>
       )}
     </div>
   );
@@ -656,7 +802,23 @@ function WatchListSection({ primary_finding, zone }) {
 
   return (
     <div style={{ marginBottom: 48 }}>
-      <p style={{ ...labelWatchListAmber, marginBottom: phase === 'loading' ? 8 : 12 }}>WATCH LIST</p>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          marginBottom: phase === 'loading' ? 8 : 12
+        }}
+      >
+        <Telescope
+          size={SECTION_HEADER_ICON_PX}
+          color={TEAL}
+          strokeWidth={SECTION_HEADER_ICON_STROKE}
+          aria-hidden
+          style={{ flexShrink: 0, opacity: 0.92 }}
+        />
+        <p style={{ ...labelWatchListAmber, margin: 0 }}>WATCH LIST</p>
+      </div>
       {phase === 'loading' && profileGeneratingLine()}
       {phase === 'error' && (
         <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: MUTED, margin: '0 0 24px', lineHeight: 1.55 }}>
@@ -672,18 +834,19 @@ function WatchListSection({ primary_finding, zone }) {
           }}
         >
           {[items.watch_1, items.watch_2].map((text, i) => (
-            <div
-              key={i}
-              style={{
-                border: `1px solid ${AMBER}`,
-                borderLeft: `4px solid ${AMBER}`,
-                backgroundColor: SURFACE,
-                borderRadius: 12,
-                padding: '20px 18px'
-              }}
-            >
-              <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
-            </div>
+            <ScrollReveal key={i} delayMs={i * 80}>
+              <div
+                style={{
+                  border: `1px solid ${AMBER}`,
+                  borderLeft: `4px solid ${AMBER}`,
+                  backgroundColor: SURFACE,
+                  borderRadius: 12,
+                  padding: '20px 18px'
+                }}
+              >
+                <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
+              </div>
+            </ScrollReveal>
           ))}
         </div>
       )}
@@ -769,17 +932,18 @@ function TransitionAdvisedSections({ verdict, primary_finding, zone }) {
             }}
           >
             {[data.strong_1, data.strong_2].map((text, i) => (
-              <div
-                key={i}
-                style={{
-                  backgroundColor: TEAL_TINT_BG,
-                  borderLeft: `4px solid ${GROUNDWORK_TEAL}`,
-                  borderRadius: '0 10px 10px 0',
-                  padding: '20px 18px'
-                }}
-              >
-                <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
-              </div>
+              <ScrollReveal key={`s-${i}`} delayMs={i * 75}>
+                <div
+                  style={{
+                    backgroundColor: TEAL_TINT_BG,
+                    borderLeft: `4px solid ${GROUNDWORK_TEAL}`,
+                    borderRadius: '0 10px 10px 0',
+                    padding: '20px 18px'
+                  }}
+                >
+                  <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
+                </div>
+              </ScrollReveal>
             ))}
           </div>
 
@@ -792,17 +956,18 @@ function TransitionAdvisedSections({ verdict, primary_finding, zone }) {
             }}
           >
             {[data.build_1, data.build_2].map((text, i) => (
-              <div
-                key={i}
-                style={{
-                  backgroundColor: AMBER_TINT_BG,
-                  borderLeft: `4px solid ${AMBER}`,
-                  borderRadius: '0 10px 10px 0',
-                  padding: '20px 18px'
-                }}
-              >
-                <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
-              </div>
+              <ScrollReveal key={`b-${i}`} delayMs={i * 75}>
+                <div
+                  style={{
+                    backgroundColor: AMBER_TINT_BG,
+                    borderLeft: `4px solid ${AMBER}`,
+                    borderRadius: '0 10px 10px 0',
+                    padding: '20px 18px'
+                  }}
+                >
+                  <p style={{ fontFamily: FONT_SANS, fontSize: 14, color: TEXT, margin: 0, lineHeight: 1.55 }}>{text}</p>
+                </div>
+              </ScrollReveal>
             ))}
           </div>
         </>
@@ -834,14 +999,13 @@ const labelNextStepTealOnNavy = {
 function CoachingOfferCard({ variant }) {
   if (variant === 'transition') {
     return (
+      <ScrollReveal style={{ marginBottom: 48, maxWidth: 880, width: '100%' }}>
       <section
         style={{
           backgroundColor: '#faf9f6',
           borderLeft: `4px solid ${AMBER}`,
           borderRadius: '0 12px 12px 0',
           padding: 24,
-          marginBottom: 48,
-          maxWidth: 880,
           boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
         }}
       >
@@ -890,18 +1054,18 @@ function CoachingOfferCard({ variant }) {
           Learn More
         </Link>
       </section>
+      </ScrollReveal>
     );
   }
 
   if (variant === 'exposed') {
     return (
+      <ScrollReveal style={{ marginBottom: 48, maxWidth: 880, width: '100%' }}>
       <section
         style={{
           backgroundColor: NAVY,
           borderRadius: 12,
           padding: 24,
-          marginBottom: 48,
-          maxWidth: 880,
           boxShadow: '0 4px 24px rgba(27, 58, 107, 0.2)'
         }}
       >
@@ -950,6 +1114,7 @@ function CoachingOfferCard({ variant }) {
           Learn More
         </Link>
       </section>
+      </ScrollReveal>
     );
   }
 
@@ -958,14 +1123,13 @@ function CoachingOfferCard({ variant }) {
 
 function ReportCertificatePromo() {
   return (
+    <ScrollReveal style={{ maxWidth: 880, margin: '0 auto', width: '100%' }}>
     <section
       style={{
         backgroundColor: NAVY,
         borderRadius: 14,
         padding: '36px 28px',
-        textAlign: 'center',
-        maxWidth: 880,
-        margin: '0 auto'
+        textAlign: 'center'
       }}
     >
       <h2
@@ -1006,10 +1170,160 @@ function ReportCertificatePromo() {
         View Your Certificate
       </Link>
     </section>
+    </ScrollReveal>
   );
 }
 
-function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide, includeCertificate = true }) {
+const expansionTagBase = {
+  display: 'inline-block',
+  fontSize: 10,
+  fontFamily: FONT_SANS,
+  fontWeight: 700,
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  padding: '5px 10px',
+  borderRadius: 6,
+  border: `1px solid ${TEAL}`,
+  color: TEAL,
+  backgroundColor: 'rgba(13, 115, 119, 0.08)'
+};
+
+const expansionCardShell = {
+  backgroundColor: SURFACE,
+  border: '1px solid rgba(27, 58, 107, 0.14)',
+  borderLeft: `3px solid ${TEAL}`,
+  borderRadius: '0 12px 12px 0',
+  padding: '22px 24px',
+  boxShadow: '0 1px 4px rgba(26, 25, 22, 0.05)',
+  height: '100%',
+  boxSizing: 'border-box'
+};
+
+function PlatformExpansionSection() {
+  return (
+    <ScrollReveal style={{ marginTop: 8, marginBottom: 0 }}>
+      <h2
+        style={{
+          fontFamily: FONT_DISPLAY,
+          fontSize: 22,
+          fontWeight: 600,
+          color: NAVY,
+          margin: '0 0 18px',
+          lineHeight: 1.25,
+          letterSpacing: '0.01em'
+        }}
+      >
+        Platform Expansion
+      </h2>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+          gap: 18,
+          marginBottom: 36
+        }}
+      >
+        <div style={expansionCardShell}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+            <h3
+              style={{
+                fontFamily: FONT_DISPLAY,
+                fontSize: 19,
+                fontWeight: 600,
+                color: TEXT,
+                margin: 0,
+                lineHeight: 1.25
+              }}
+            >
+              Team Intelligence
+            </h3>
+            <span style={expansionTagBase}>BETA</span>
+          </div>
+          <p
+            style={{
+              fontFamily: FONT_SANS,
+              fontSize: 14,
+              fontWeight: 400,
+              color: MUTED,
+              margin: 0,
+              lineHeight: 1.6
+            }}
+          >
+            Invite your team to map collective capability gaps and hidden leadership signals.
+          </p>
+        </div>
+        <div style={expansionCardShell}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
+            <h3
+              style={{
+                fontFamily: FONT_DISPLAY,
+                fontSize: 19,
+                fontWeight: 600,
+                color: TEXT,
+                margin: 0,
+                lineHeight: 1.25
+              }}
+            >
+              The Hard Call Simulator
+            </h3>
+            <span
+              style={{
+                ...expansionTagBase,
+                color: GROUNDWORK_TEAL,
+                borderColor: 'rgba(10, 95, 99, 0.42)',
+                backgroundColor: 'rgba(10, 95, 99, 0.07)'
+              }}
+            >
+              IN DEVELOPMENT
+            </span>
+          </div>
+          <p
+            style={{
+              fontFamily: FONT_SANS,
+              fontSize: 14,
+              fontWeight: 400,
+              color: MUTED,
+              margin: 0,
+              lineHeight: 1.6
+            }}
+          >
+            Stress-test your 30-day directive in high-stakes, AI-driven business simulations.
+          </p>
+        </div>
+      </div>
+      <footer
+        style={{
+          borderTop: '1px solid rgba(26, 25, 22, 0.1)',
+          paddingTop: 22,
+          textAlign: 'center'
+        }}
+      >
+        <p
+          style={{
+            fontFamily: FONT_SANS,
+            fontSize: 11,
+            fontWeight: 500,
+            letterSpacing: '0.06em',
+            color: LABEL_MUTED,
+            margin: 0,
+            lineHeight: 1.5
+          }}
+        >
+          Bearing: The Human Capability Operating System.
+        </p>
+      </footer>
+    </ScrollReveal>
+  );
+}
+
+function ReportSections2Through7({
+  submission,
+  zoneNum,
+  showAiCollaborationGuide,
+  includeCertificate = true,
+  collaborationPhase = 'idle',
+  collaborationGuide = null
+}) {
   const verdictKey = normalizeVerdict(submission.verdict);
   const isExposed = verdictKey === 'EXPOSED';
   const isWellPositioned = verdictKey === 'WELL_POSITIONED';
@@ -1024,28 +1338,29 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
           <ExposedAcknowledgmentSection primary_finding={submission.primary_finding} zone={submission.zone} />
         ) : null}
 
-        <p style={{ ...labelStyle(), marginBottom: 12 }}>{primaryFindingLabel}</p>
-        <div
-          style={{
-            border: `2px solid ${NAVY}`,
-            backgroundColor: SURFACE,
-            borderRadius: 12,
-            padding: '24px 28px',
-            marginBottom: 48
-          }}
-        >
-          <p
+        <ScrollReveal style={{ marginBottom: 48 }}>
+          <p style={{ ...labelStyle(), marginBottom: 12 }}>{primaryFindingLabel}</p>
+          <div
             style={{
-              fontFamily: FONT_DISPLAY,
-              fontSize: 20,
-              lineHeight: 1.5,
-              color: TEXT,
-              margin: 0
+              border: `2px solid ${NAVY}`,
+              backgroundColor: SURFACE,
+              borderRadius: 12,
+              padding: '24px 28px'
             }}
           >
-            {String(submission.primary_finding || '—').trim()}
-          </p>
-        </div>
+            <p
+              style={{
+                fontFamily: FONT_DISPLAY,
+                fontSize: 20,
+                lineHeight: 1.5,
+                color: TEXT,
+                margin: 0
+              }}
+            >
+              {String(submission.primary_finding || '—').trim()}
+            </p>
+          </div>
+        </ScrollReveal>
 
         {verdictAi && isWellPositioned ? (
           <WatchListSection primary_finding={submission.primary_finding} zone={submission.zone} />
@@ -1059,57 +1374,59 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
           />
         ) : null}
 
-        <p style={{ ...labelStyle(), marginBottom: 12 }}>CAPABILITY ZONE</p>
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 4,
-            marginBottom: 48
-          }}
-        >
-          {ZONE_SEGMENTS.map((z) => {
-            const active = zoneNum === z.n;
-            return (
+        <ScrollReveal style={{ marginBottom: 48 }}>
+          <p style={{ ...labelStyle(), marginBottom: 12 }}>CAPABILITY ZONE</p>
+          <div
+            style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: 4
+            }}
+          >
+            {ZONE_SEGMENTS.map((z) => {
+              const active = zoneNum === z.n;
+              return (
+                <div
+                  key={z.n}
+                  style={{
+                    flex: '1 1 120px',
+                    minHeight: 48,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '10px 8px',
+                    backgroundColor: active ? TEAL : ZONE_MUTED,
+                    color: active ? '#ffffff' : TEXT,
+                    fontSize: 11,
+                    fontFamily: FONT_SANS,
+                    fontWeight: 600,
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    textAlign: 'center',
+                    borderRadius: 6
+                  }}
+                >
+                  {z.label}
+                </div>
+              );
+            })}
+          </div>
+        </ScrollReveal>
+
+        <ScrollReveal style={{ marginBottom: 48 }}>
+          <p style={{ ...labelStyle(), marginBottom: 16 }}>DIMENSION BREAKDOWN</p>
+          <div>
+            {DIMENSIONS.map((dim) => (
               <div
-                key={z.n}
+                key={dim.name}
                 style={{
-                  flex: '1 1 120px',
-                  minHeight: 48,
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '10px 8px',
-                  backgroundColor: active ? TEAL : ZONE_MUTED,
-                  color: active ? '#ffffff' : TEXT,
-                  fontSize: 11,
-                  fontFamily: FONT_SANS,
-                  fontWeight: 600,
-                  letterSpacing: '0.06em',
-                  textTransform: 'uppercase',
-                  textAlign: 'center',
-                  borderRadius: 6
+                  alignItems: 'flex-start',
+                  gap: 12,
+                  padding: '14px 0',
+                  borderBottom: '1px solid rgba(26,25,22,0.08)'
                 }}
               >
-                {z.label}
-              </div>
-            );
-          })}
-        </div>
-
-        <p style={{ ...labelStyle(), marginBottom: 16 }}>DIMENSION BREAKDOWN</p>
-        <div style={{ marginBottom: 48 }}>
-          {DIMENSIONS.map((dim) => (
-            <div
-              key={dim.name}
-              style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                gap: 12,
-                padding: '14px 0',
-                borderBottom: '1px solid rgba(26,25,22,0.08)'
-              }}
-            >
               <span
                 style={{
                   width: 10,
@@ -1139,36 +1456,47 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
               </div>
             </div>
           ))}
-        </div>
+          </div>
+        </ScrollReveal>
 
-        <p style={{ ...labelStyle(), marginBottom: 12 }}>ENGAGEMENT PROFILE</p>
-        <div
-          style={{
-            borderLeft: `4px solid ${TEAL}`,
-            backgroundColor: SURFACE,
-            padding: '20px 24px',
-            marginBottom: 48,
-            borderRadius: '0 10px 10px 0',
-            boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
-          }}
-        >
+        <ScrollReveal style={{ marginBottom: 48 }}>
+          <p style={{ ...labelStyle(), marginBottom: 12 }}>ENGAGEMENT PROFILE</p>
           <div
             style={{
-              fontSize: 16,
-              fontFamily: FONT_SANS,
-              fontWeight: 700,
-              color: TEXT,
-              marginBottom: 10
+              borderLeft: `4px solid ${TEAL}`,
+              backgroundColor: SURFACE,
+              padding: '20px 24px',
+              borderRadius: '0 10px 10px 0',
+              boxShadow: '0 1px 3px rgba(26,25,22,0.06)'
             }}
           >
-            {formatEnergy(submission.energy_profile)}
+            <div
+              style={{
+                fontSize: 16,
+                fontFamily: FONT_SANS,
+                fontWeight: 700,
+                color: TEXT,
+                marginBottom: 10
+              }}
+            >
+              {formatEnergy(submission.energy_profile)}
+            </div>
+            <p style={{ fontSize: 14, fontFamily: FONT_SANS, color: MUTED, margin: 0, lineHeight: 1.55 }}>
+              Your action map reflects your capability and your energy for using it.
+            </p>
           </div>
-          <p style={{ fontSize: 14, fontFamily: FONT_SANS, color: MUTED, margin: 0, lineHeight: 1.55 }}>
-            Your action map reflects your capability and your energy for using it.
-          </p>
-        </div>
+        </ScrollReveal>
 
-        <p style={{ ...labelStyle(), marginBottom: 16 }}>YOUR ACTION MAP</p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+          <Route
+            size={SECTION_HEADER_ICON_PX}
+            color={TEAL}
+            strokeWidth={SECTION_HEADER_ICON_STROKE}
+            aria-hidden
+            style={{ flexShrink: 0, opacity: 0.92 }}
+          />
+          <p style={{ ...labelStyle(), margin: 0 }}>YOUR ACTION MAP</p>
+        </div>
         <div
           style={{
             display: 'grid',
@@ -1181,16 +1509,16 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
             const trimmed = act ? String(act).trim() : '';
             const structured = trimmed ? parseStructuredActionItem(trimmed) : null;
             return (
-              <div
-                key={i}
-                style={{
-                  backgroundColor: WARM_WHITE,
-                  border: `1px solid ${NAVY}`,
-                  borderRadius: 12,
-                  padding: '20px 18px',
-                  minHeight: 140
-                }}
-              >
+              <ScrollReveal key={i} delayMs={i * 75}>
+                <div
+                  style={{
+                    backgroundColor: WARM_WHITE,
+                    border: `1px solid ${NAVY}`,
+                    borderRadius: 12,
+                    padding: '20px 18px',
+                    minHeight: 140
+                  }}
+                >
                 <div
                   style={{
                     fontSize: 11,
@@ -1311,24 +1639,22 @@ function ReportSections2Through7({ submission, zoneNum, showAiCollaborationGuide
                     </p>
                   </>
                 )}
-              </div>
+                </div>
+              </ScrollReveal>
             );
           })}
         </div>
 
         {showAiCollaborationGuide ? (
-          <AiCollaborationGuideSection
-            verdict={submission.verdict}
-            primary_finding={submission.primary_finding}
-            zone={submission.zone}
-            energy_profile={submission.energy_profile}
-          />
+          <AiCollaborationGuideSection phase={collaborationPhase} guide={collaborationGuide} />
         ) : null}
 
         {includeCertificate && isTransitionAdvised ? <CoachingOfferCard variant="transition" /> : null}
         {includeCertificate && isExposed ? <CoachingOfferCard variant="exposed" /> : null}
 
         {includeCertificate ? <ReportCertificatePromo /> : null}
+
+        <PlatformExpansionSection />
       </div>
     </div>
   );
@@ -1351,6 +1677,20 @@ export default function ReportPage() {
     []
   );
 
+  const collaborationEnabled =
+    !loading &&
+    submission != null &&
+    user != null &&
+    hasFullReportAccess(user);
+
+  const collaboration = useAiCollaborationGuide({
+    enabled: collaborationEnabled,
+    verdict: submission?.verdict,
+    primary_finding: submission?.primary_finding,
+    zone: submission?.zone,
+    energy_profile: submission?.energy_profile
+  });
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -1367,7 +1707,7 @@ export default function ReportPage() {
       const { data, error: qErr } = await supabase
         .from('assessment_submissions')
         .select(
-          'verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive, dim_judgment_plain, dim_relational_plain, dim_synthesis_plain, dim_creative_plain, dim_adaptive_plain, created_at'
+          'total_score, capability_score, verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive, dim_judgment_plain, dim_relational_plain, dim_synthesis_plain, dim_creative_plain, dim_adaptive_plain, created_at'
         )
         .eq('user_id', u.id)
         .order('created_at', { ascending: false })
@@ -1416,21 +1756,7 @@ export default function ReportPage() {
   const zoneNum = parseZoneNumber(submission?.zone);
 
   if (loading) {
-    return (
-      <div
-        style={{
-          minHeight: '100vh',
-          backgroundColor: WARM_WHITE,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontFamily: FONT_SANS,
-          color: MUTED
-        }}
-      >
-        Loading…
-      </div>
-    );
+    return <BearingThinkingOverlay />;
   }
 
   if (!submission) {
@@ -1576,8 +1902,19 @@ export default function ReportPage() {
           {error}
         </div>
       )}
-      <Section1VerdictFull submission={submission} vc={vc} />
-      <ReportSections2Through7 submission={submission} zoneNum={zoneNum} showAiCollaborationGuide />
+      <Section1VerdictFull
+        submission={submission}
+        vc={vc}
+        strategicPriorityPhase={collaboration.phase}
+        strategicPriorityText={collaboration.guide?.next_skill ?? null}
+      />
+      <ReportSections2Through7
+        submission={submission}
+        zoneNum={zoneNum}
+        showAiCollaborationGuide
+        collaborationPhase={collaboration.phase}
+        collaborationGuide={collaboration.guide}
+      />
     </div>
   );
 }

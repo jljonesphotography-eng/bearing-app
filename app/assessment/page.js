@@ -1,5 +1,6 @@
 'use client';
 
+import BearingThinkingOverlay from '@/app/components/BearingThinkingOverlay';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
@@ -277,11 +278,18 @@ export default function AssessmentPage() {
           ? scoreRaw
           : Number.parseFloat(String(scoreRaw));
 
+      const capRaw = result.capability_score;
+      const capabilityScore =
+        typeof capRaw === 'number'
+          ? capRaw
+          : Number.parseFloat(String(capRaw));
+
       const dims = normalizeDimensionFieldsForSave(result);
 
       const insertData = {
         user_id: user.id,
         total_score: Number.isFinite(totalScore) ? totalScore : null,
+        capability_score: Number.isFinite(capabilityScore) ? capabilityScore : null,
         verdict: result.verdict ?? null,
         primary_finding: result.primary_finding ?? null,
         zone: result.zone ?? null,
@@ -353,6 +361,7 @@ export default function AssessmentPage() {
           { role: 'user', content: START_USER_MESSAGE }
         ]);
         if (result && initialQuestionCount >= REQUIRED_ANSWER_COUNT) {
+          if (!cancelled) setSavingAssessment(true);
           await saveResultAndRedirect(result);
         }
       } catch (e) {
@@ -360,7 +369,10 @@ export default function AssessmentPage() {
           setError(normalizeCaughtAssessError(e));
         }
       } finally {
-        if (!cancelled) setAwaiting(false);
+        if (!cancelled) {
+          setAwaiting(false);
+          setSavingAssessment(false);
+        }
       }
     }
 
@@ -401,6 +413,7 @@ export default function AssessmentPage() {
       ]);
 
       if (result && nextQuestionCount >= REQUIRED_ANSWER_COUNT) {
+        setSavingAssessment(true);
         await saveResultAndRedirect(result);
       }
     } catch (e) {
@@ -415,6 +428,7 @@ export default function AssessmentPage() {
       setInput(trimmed);
     } finally {
       setAwaiting(false);
+      setSavingAssessment(false);
     }
   };
 
@@ -510,6 +524,7 @@ export default function AssessmentPage() {
         color: TEXT
       }}
     >
+      {savingAssessment ? <BearingThinkingOverlay /> : null}
       <header
         style={{
           backgroundColor: NAVY,
