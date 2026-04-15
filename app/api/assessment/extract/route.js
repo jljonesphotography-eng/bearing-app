@@ -10,6 +10,11 @@ const SYSTEM_PROMPT = `You are extracting structured assessment results from a H
 
 Required JSON keys: verdict, primary_finding, zone, energy_profile, action_1, action_2, action_3, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive.
 
+JSON output field format:
+"action_1": "MUST use this exact format with newline characters between each line:\nWHAT — [one sentence specific action]\nWHY NOW — [one sentence why this matters right now in their career]\nTHIS WEEK — [one concrete example of what doing this looks like in the next 7 days]\nWHAT CHANGES — [one sentence describing what will be different when they do this consistently]"
+"action_2": "MUST use this exact format with newline characters between each line:\nWHAT — [one sentence specific action]\nWHY NOW — [one sentence why this matters right now in their career]\nTHIS WEEK — [one concrete example of what doing this looks like in the next 7 days]\nWHAT CHANGES — [one sentence describing what will be different when they do this consistently]"
+"action_3": "MUST use this exact format with newline characters between each line:\nWHAT — [one sentence specific action]\nWHY NOW — [one sentence why this matters right now in their career]\nTHIS WEEK — [one concrete example of what doing this looks like in the next 7 days]\nWHAT CHANGES — [one sentence describing what will be different when they do this consistently]"
+
 verdict: exactly one of: WELL_POSITIONED, TRANSITION_ADVISED, EXPOSED
 primary_finding: one specific sentence naming the primary Zone 1 capability observed
 zone: exactly one of: Zone 1, Zone 2, Zone 3, Zone 4
@@ -36,6 +41,7 @@ Rules:
 - Start each line with exactly: WHAT — / WHY NOW — / THIS WEEK — / WHAT CHANGES —
 - Use em dash — not hyphen -
 - No extra text before WHAT or after the WHAT CHANGES line
+CRITICAL FORMAT REMINDER: action_1, action_2, and action_3 MUST each contain exactly four lines separated by newline characters. Line 1 starts with WHAT — , Line 2 starts with WHY NOW — , Line 3 starts with THIS WEEK — , Line 4 starts with WHAT CHANGES — . Do not write prose. Do not combine lines. Four lines per action item, every time, no exceptions.
 - All four lines required in every action item`;
 
 function textFromMessage(response) {
