@@ -17,6 +17,7 @@ const FONT_SANS =
 /** Must match server default in app/api/assess/route.js when messages is [] */
 const START_USER_MESSAGE =
   'Please begin the Bearing conversational assessment.';
+const REQUIRED_ANSWER_COUNT = 7;
 
 /** System prompt closes the delivered assessment with this sentence — required before "Get My Assessment". */
 const ASSESSMENT_CLOSING_PHRASE = 'What you do with that is yours.';
@@ -161,6 +162,13 @@ function displayFromApiMessages(apiMessages) {
   );
 }
 
+function answeredQuestionCount(apiMessages) {
+  if (!Array.isArray(apiMessages)) return 0;
+  return apiMessages.filter(
+    (m) => m?.role === 'user' && typeof m.content === 'string' && m.content !== START_USER_MESSAGE
+  ).length;
+}
+
 const DIM_PLAIN_SEP = '||PLAIN||';
 
 /** Aligns with /api/assessment/extract: dim_* stores observed only; dim_*_plain stores coach voice. */
@@ -201,6 +209,7 @@ export default function AssessmentPage() {
   const [error, setError] = useState(null);
   const [started, setStarted] = useState(false);
   const [savingAssessment, setSavingAssessment] = useState(false);
+  const questionCount = answeredQuestionCount(apiMessages);
 
   const supabase = useMemo(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -340,7 +349,10 @@ export default function AssessmentPage() {
         ]);
         setStarted(true);
 
-        if (result) {
+        const initialQuestionCount = answeredQuestionCount([
+          { role: 'user', content: START_USER_MESSAGE }
+        ]);
+        if (result && initialQuestionCount >= REQUIRED_ANSWER_COUNT) {
           await saveResultAndRedirect(result);
         }
       } catch (e) {
@@ -364,6 +376,7 @@ export default function AssessmentPage() {
 
     setError(null);
     const nextApi = [...apiMessages, { role: 'user', content: trimmed }];
+    const nextQuestionCount = answeredQuestionCount(nextApi);
     setApiMessages(nextApi);
     setInput('');
     setAwaiting(true);
@@ -387,7 +400,7 @@ export default function AssessmentPage() {
         { role: 'assistant', content: assistantText }
       ]);
 
-      if (result) {
+      if (result && nextQuestionCount >= REQUIRED_ANSWER_COUNT) {
         await saveResultAndRedirect(result);
       }
     } catch (e) {
@@ -419,10 +432,14 @@ export default function AssessmentPage() {
 
   /** Only after Bearing's closing line from the system prompt (full assessment delivered). */
   const showGetMyAssessment =
-    started && hasAssessmentClosingPhrase && (!awaiting || savingAssessment);
+    started &&
+    questionCount >= REQUIRED_ANSWER_COUNT &&
+    hasAssessmentClosingPhrase &&
+    (!awaiting || savingAssessment);
 
   const handleGetMyAssessment = async () => {
     if (!started || awaiting || apiMessages.length === 0) return;
+    if (questionCount < REQUIRED_ANSWER_COUNT) return;
     if (!hasAssessmentClosingPhrase) return;
 
     setError(null);

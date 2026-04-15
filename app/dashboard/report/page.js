@@ -1326,7 +1326,7 @@ export default function ReportPage() {
       const { data, error: qErr } = await supabase
         .from('assessment_submissions')
         .select(
-          'verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive, created_at'
+          'verdict, primary_finding, zone, action_1, action_2, action_3, energy_profile, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive, dim_judgment_plain, dim_relational_plain, dim_synthesis_plain, dim_creative_plain, dim_adaptive_plain, created_at'
         )
         .eq('user_id', u.id)
         .order('created_at', { ascending: false })
