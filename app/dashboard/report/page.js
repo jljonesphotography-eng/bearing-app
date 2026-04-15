@@ -408,27 +408,12 @@ function Section1VerdictFull({
       >
         {reportVerdictHeadline(submission.verdict)}
       </h1>
-      {submission.primary_finding ? (
-        <p
-          className="bearing-report-verdict-sentence"
-          style={{
-            fontFamily: FONT_SANS,
-            fontSize: 17,
-            lineHeight: 1.55,
-            color: 'rgba(255,255,255,0.88)',
-            maxWidth: 560,
-            margin: '0 auto'
-          }}
-        >
-          {String(submission.primary_finding).trim()}
-        </p>
-      ) : null}
 
       <div
         style={{
           maxWidth: 560,
           width: '100%',
-          margin: '32px auto 0',
+          margin: '28px auto 0',
           textAlign: 'center'
         }}
       >
@@ -436,7 +421,7 @@ function Section1VerdictFull({
       </div>
 
       {(showStrategicLoading || (strategicPriorityPhase === 'ready' && directive)) && (
-        <div style={{ maxWidth: 560, width: '100%', margin: '28px auto 0', textAlign: 'left' }}>
+        <div style={{ maxWidth: 560, width: '100%', margin: '24px auto 0', textAlign: 'left' }}>
           {showStrategicLoading && (
             <p
               style={{
@@ -457,11 +442,11 @@ function Section1VerdictFull({
               role="region"
               aria-label="Strategic priority for the next 30 days"
               style={{
-                borderLeft: `4px solid ${STRATEGIC_PRIORITY_BORDER}`,
+                borderLeft: `6px solid ${STRATEGIC_PRIORITY_BORDER}`,
                 backgroundColor: STRATEGIC_PRIORITY_BG,
                 padding: '22px 24px 24px',
                 borderRadius: '0 14px 14px 0',
-                boxShadow: '0 8px 28px rgba(0,0,0,0.2)'
+                boxShadow: '0 4px 20px rgba(0,0,0,0.18)'
               }}
             >
               <p
@@ -494,6 +479,23 @@ function Section1VerdictFull({
           ) : null}
         </div>
       )}
+
+      {submission.primary_finding ? (
+        <p
+          className="bearing-report-verdict-sentence"
+          style={{
+            fontFamily: FONT_SANS,
+            fontSize: 17,
+            lineHeight: 1.55,
+            color: 'rgba(255,255,255,0.88)',
+            maxWidth: 560,
+            margin: '32px auto 0',
+            textAlign: 'center'
+          }}
+        >
+          {String(submission.primary_finding).trim()}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -511,7 +513,7 @@ const labelTealCaps = {
 /** API field `next_skill` — product copy refers to this as the strategic / build-next directive. */
 const STRATEGIC_PRIORITY_BORDER = '#0d7377';
 /** Very light teal-tinted surface (organic modern) */
-const STRATEGIC_PRIORITY_BG = '#ecf6f6';
+const STRATEGIC_PRIORITY_BG = 'rgba(236, 247, 247, 0.98)';
 
 function useAiCollaborationGuide({
   enabled,
@@ -1190,11 +1192,10 @@ const expansionTagBase = {
 
 const expansionCardShell = {
   backgroundColor: SURFACE,
-  border: '1px solid rgba(27, 58, 107, 0.14)',
-  borderLeft: `3px solid ${TEAL}`,
-  borderRadius: '0 12px 12px 0',
-  padding: '22px 24px',
-  boxShadow: '0 1px 4px rgba(26, 25, 22, 0.05)',
+  border: '1px solid rgba(27, 58, 107, 0.16)',
+  borderRadius: 12,
+  padding: '20px 22px',
+  boxShadow: 'none',
   height: '100%',
   boxSizing: 'border-box'
 };
@@ -1230,7 +1231,7 @@ function PlatformExpansionSection() {
                 fontFamily: FONT_DISPLAY,
                 fontSize: 19,
                 fontWeight: 600,
-                color: TEXT,
+                color: LABEL_MUTED,
                 margin: 0,
                 lineHeight: 1.25
               }}
@@ -1249,7 +1250,7 @@ function PlatformExpansionSection() {
               lineHeight: 1.6
             }}
           >
-            Invite your team to map collective capability gaps and hidden leadership signals.
+            Invite your team to map collective capability gaps.
           </p>
         </div>
         <div style={expansionCardShell}>
@@ -1259,12 +1260,12 @@ function PlatformExpansionSection() {
                 fontFamily: FONT_DISPLAY,
                 fontSize: 19,
                 fontWeight: 600,
-                color: TEXT,
+                color: LABEL_MUTED,
                 margin: 0,
                 lineHeight: 1.25
               }}
             >
-              The Hard Call Simulator
+              Hard Call Simulator
             </h3>
             <span
               style={{
@@ -1287,7 +1288,7 @@ function PlatformExpansionSection() {
               lineHeight: 1.6
             }}
           >
-            Stress-test your 30-day directive in high-stakes, AI-driven business simulations.
+            Stress-test your 30-day directive in AI-driven simulations.
           </p>
         </div>
       </div>
