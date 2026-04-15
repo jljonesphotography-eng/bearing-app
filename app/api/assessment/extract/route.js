@@ -26,12 +26,17 @@ The plain language part should feel like the most useful thing a coach could say
 Each dim_* value in the JSON must be a single string in the form: Part1||PLAIN||Part2 (use the exact delimiter ||PLAIN|| with no spaces inside the delimiter).
 
 ACTION ITEMS (action_1, action_2, action_3)
-Each action item must be returned as a single string for action_1, action_2, and action_3 in this exact format with newlines between each line:
-WHAT — [the specific action, one sentence, direct, no jargon]
-WHY NOW — [why this matters at this exact moment in their career given what was observed, one sentence]
-THIS WEEK — [one concrete example of what doing this looks like in the next 7 days, specific not abstract]
-WHAT CHANGES — [what will be different when they do this consistently, one sentence tied to their specific finding]
-Use this format exactly. No deviation. Every action item must have all four lines.`;
+CRITICAL: Each action item MUST use this exact format. No exceptions.
+
+action_1, action_2, and action_3 must each be a single string formatted EXACTLY like this example:
+"WHAT — Document the three decisions you made this year that others couldn't have made\nWHY NOW — Your judgment is invisible because it looks effortless, and that invisibility is costing you\nTHIS WEEK — Write one paragraph describing one decision outcome as a business result, not a process\nWHAT CHANGES — Decision-makers will start seeing your judgment as an asset rather than assuming things just worked out"
+
+Rules:
+- Use \n between each line (literal newline in the string)
+- Start each line with exactly: WHAT — / WHY NOW — / THIS WEEK — / WHAT CHANGES —
+- Use em dash — not hyphen -
+- No extra text before WHAT or after the WHAT CHANGES line
+- All four lines required in every action item`;
 
 function textFromMessage(response) {
   const blocks = response?.content;
