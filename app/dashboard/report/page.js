@@ -101,27 +101,35 @@ function parseStructuredActionItem(raw) {
     thisWeek: null,
     whatChanges: null
   };
-  const sep = '[—:–\\-]'; // em dash, colon, en dash, hyphen-minus
+  const splitAfterEmDash = (line, label) => {
+    const upper = line.toUpperCase();
+    const prefix = `${label.toUpperCase()} —`;
+    if (!upper.startsWith(prefix)) return null;
+    const parts = line.split('—');
+    if (parts.length < 2) return null;
+    const value = parts.slice(1).join('—').trim();
+    return value || null;
+  };
   for (const line of lines) {
     if (!line) continue;
-    let m = line.match(new RegExp(`^WHAT\\s*${sep}\\s*(.+)$`, 'i'));
-    if (m) {
-      parts.what = m[1].trim();
+    const what = splitAfterEmDash(line, 'WHAT');
+    if (what) {
+      parts.what = what;
       continue;
     }
-    m = line.match(new RegExp(`^WHY NOW\\s*${sep}\\s*(.+)$`, 'i'));
-    if (m) {
-      parts.whyNow = m[1].trim();
+    const whyNow = splitAfterEmDash(line, 'WHY NOW');
+    if (whyNow) {
+      parts.whyNow = whyNow;
       continue;
     }
-    m = line.match(new RegExp(`^THIS WEEK\\s*${sep}\\s*(.+)$`, 'i'));
-    if (m) {
-      parts.thisWeek = m[1].trim();
+    const thisWeek = splitAfterEmDash(line, 'THIS WEEK');
+    if (thisWeek) {
+      parts.thisWeek = thisWeek;
       continue;
     }
-    m = line.match(new RegExp(`^WHAT CHANGES\\s*${sep}\\s*(.+)$`, 'i'));
-    if (m) {
-      parts.whatChanges = m[1].trim();
+    const whatChanges = splitAfterEmDash(line, 'WHAT CHANGES');
+    if (whatChanges) {
+      parts.whatChanges = whatChanges;
       continue;
     }
   }
