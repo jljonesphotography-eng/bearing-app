@@ -9,19 +9,9 @@ const EXTRACT_MAX_TOKENS = 4000;
 
 const PLAIN_DELIM = '||PLAIN||';
 
-const SYSTEM_PROMPT = `ABSOLUTE RULE: Every sentence you write must be grammatically complete. Never end a sentence with a comma, dash, preposition, article, or conjunction. If you start a sentence, finish it. This applies to every field in the JSON output without exception.
-
-You are extracting structured assessment results from a Human Capability Intelligence conversation. Read the full conversation and extract the following fields as JSON with no preamble and no markdown backticks. Base everything strictly on what was observed in this conversation.
+const SYSTEM_PROMPT = `You are extracting structured assessment results from a Human Capability Intelligence conversation. Read the full conversation and extract the following fields as JSON with no preamble and no markdown backticks. Base everything strictly on what was observed in this conversation.
 
 Required JSON keys: verdict, primary_finding, zone, energy_profile, action_1, action_2, action_3, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive.
-
-JSON output field format:
-STRICT FORMAT BLOCK FOR ACTIONS:
-"action_1": "STRICT FORMAT: You must output exactly four lines for this action item, each starting with the specific label followed by a long dash. \nWHAT — [A short, punchy strategy name]\nWHY NOW — [Why this is urgent based on their specific AI displacement risks]\nTHIS WEEK — [One concrete, non-generic step they can take in the next 7 days]\nWHAT CHANGES — [The specific behavioral or professional shift this creates]\n\nDo not include any other text or conversational filler."
-"action_2": "STRICT FORMAT: You must output exactly four lines for this action item, each starting with the specific label followed by a long dash. \nWHAT — [A short, punchy strategy name]\nWHY NOW — [Why this is urgent based on their specific AI displacement risks]\nTHIS WEEK — [One concrete, non-generic step they can take in the next 7 days]\nWHAT CHANGES — [The specific behavioral or professional shift this creates]\n\nDo not include any other text or conversational filler."
-"action_3": "STRICT FORMAT: You must output exactly four lines for this action item, each starting with the specific label followed by a long dash. \nWHAT — [A short, punchy strategy name]\nWHY NOW — [Why this is urgent based on their specific AI displacement risks]\nTHIS WEEK — [One concrete, non-generic step they can take in the next 7 days]\nWHAT CHANGES — [The specific behavioral or professional shift this creates]\n\nDo not include any other text or conversational filler."
-CRITICAL: Every line must be a complete sentence. Do not stop mid-sentence. The WHAT line must be a complete actionable instruction. The WHY NOW line must be a complete sentence explaining urgency. The THIS WEEK line must be a complete concrete example. The WHAT CHANGES line must be a complete outcome sentence. If a sentence feels too long, shorten it — but never leave it incomplete.
-DO NOT include any introductory text or closing remarks. Start every action item directly with the word WHAT followed by a long dash (—).
 
 verdict: exactly one of: WELL_POSITIONED, TRANSITION_ADVISED, EXPOSED
 primary_finding: one specific sentence naming the primary Zone 1 capability observed
@@ -29,28 +19,21 @@ zone: exactly one of: Zone 1, Zone 2, Zone 3, Zone 4
 energy_profile: exactly one of: Build, Explore, Optimize, Honest Conversation
 
 DIMENSION FINDINGS (dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive)
-For each dimension, write one sentence on what was observed for that dimension (judgment depth, relational intelligence, synthesis capacity, creative originality, adaptive execution respectively). Each must be specific to this person and evidence-based; never generic.
-
-Each dimension finding must be written in two parts, separated by the delimiter ||PLAIN||
-Part 1 (before ||PLAIN||): The observed finding. Professional, specific, evidence-based. Written in the current style — what was actually demonstrated, with zone classification. Example: 'Strong Zone 1 — demonstrated the ability to construct new frameworks when existing patterns failed, with consistent evidence of judgment under relational and informational ambiguity.'
-Part 2 (after ||PLAIN||): The plain language translation. Written as a trusted friend who knows this person would speak. No jargon. No zone numbers. No technical terms. What it means in real life, right now, for this specific person. Warm but not soft. Direct but not clinical. Example: 'You make good calls in situations where most people freeze. People come to you specifically when they don't know who else to ask — that's not common, and it's not something AI can replicate.'
-The plain language part should feel like the most useful thing a coach could say to this person in this moment. Never generic. Always specific to what was actually observed.
-
-Each dim_* value in the JSON must be a single string in the form: Part1||PLAIN||Part2 (use the exact delimiter ||PLAIN|| with no spaces inside the delimiter).
+Each dimension finding must be written in two parts separated by ||PLAIN||
+Part 1: Professional observed finding with zone classification. Specific and evidence-based.
+Part 2: Plain language translation. What a trusted friend would say. No jargon. Warm but direct.
+Format: Part1||PLAIN||Part2
 
 ACTION ITEMS (action_1, action_2, action_3)
-CRITICAL: Each action item MUST use this exact format. No exceptions.
+Each action item must be a single string with exactly four complete sentences on four lines separated by \\n.
 
-action_1, action_2, and action_3 must each be a single string formatted EXACTLY like this example:
-"WHAT — Document the three decisions you made this year that others couldn't have made\nWHY NOW — Your judgment is invisible because it looks effortless, and that invisibility is costing you\nTHIS WEEK — Write one paragraph describing one decision outcome as a business result, not a process\nWHAT CHANGES — Decision-makers will start seeing your judgment as an asset rather than assuming things just worked out"
+Use this exact format for every action item:
+WHAT — [One complete sentence describing a specific action this person should take]
+WHY NOW — [One complete sentence explaining why this matters urgently given what was observed]
+THIS WEEK — [One complete sentence describing exactly what doing this looks like in the next 7 days]
+WHAT CHANGES — [One complete sentence describing what will be different when they do this consistently]
 
-Rules:
-- Use \n between each line (literal newline in the string)
-- Start each line with exactly: WHAT — / WHY NOW — / THIS WEEK — / WHAT CHANGES —
-- Use em dash — not hyphen -
-- No extra text before WHAT or after the WHAT CHANGES line
-CRITICAL FORMAT REMINDER: action_1, action_2, and action_3 MUST each contain exactly four lines separated by newline characters. Line 1 starts with WHAT — , Line 2 starts with WHY NOW — , Line 3 starts with THIS WEEK — , Line 4 starts with WHAT CHANGES — . Do not write prose. Do not combine lines. Four lines per action item, every time, no exceptions.
-- All four lines required in every action item`;
+Every sentence must be complete. Never end mid-thought. Each line must end with a period or appropriate punctuation. The WHAT line is a full action sentence. The WHY NOW line is a full urgency sentence. The THIS WEEK line is a full concrete example sentence. The WHAT CHANGES line is a full outcome sentence.`;
 
 function textFromMessage(response) {
   const blocks = response?.content;
