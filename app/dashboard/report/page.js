@@ -961,7 +961,7 @@ function CoachingOfferCard({ variant }) {
           $297
         </p>
         <Link
-          href="/coaching"
+          href="/coaching?from=report&program=from-stuck-to-named"
           style={{
             display: 'inline-block',
             backgroundColor: AMBER,
@@ -1021,7 +1021,7 @@ function CoachingOfferCard({ variant }) {
           $697
         </p>
         <Link
-          href="/coaching"
+          href="/coaching?from=report&program=from-exposed-to-elevated"
           style={{
             display: 'inline-block',
             backgroundColor: GROUNDWORK_TEAL,

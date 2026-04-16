@@ -100,6 +100,11 @@ export default function CoachingPage() {
         }}
       >
         <div style={{ maxWidth: 720, margin: '0 auto' }}>
+          <p style={{ margin: '0 0 16px' }}>
+            <Link href="/dashboard/report" style={{ color: TEAL, fontSize: 14, fontWeight: 600 }}>
+              ← Back to your report
+            </Link>
+          </p>
           <h1
             style={{
               fontFamily: FONT_DISPLAY,
