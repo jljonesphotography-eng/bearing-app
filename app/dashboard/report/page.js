@@ -1179,20 +1179,6 @@ function ReportCertificatePromo() {
   );
 }
 
-const expansionTagBase = {
-  display: 'inline-block',
-  fontSize: 10,
-  fontFamily: FONT_SANS,
-  fontWeight: 700,
-  letterSpacing: '0.14em',
-  textTransform: 'uppercase',
-  padding: '5px 10px',
-  borderRadius: 6,
-  border: `1px solid ${TEAL}`,
-  color: TEAL,
-  backgroundColor: 'rgba(13, 115, 119, 0.08)'
-};
-
 const expansionCardShell = {
   backgroundColor: SURFACE,
   border: '1px solid rgba(27, 58, 107, 0.16)',
@@ -1228,21 +1214,18 @@ function PlatformExpansionSection() {
         }}
       >
         <div style={expansionCardShell}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-            <h3
-              style={{
-                fontFamily: FONT_DISPLAY,
-                fontSize: 19,
-                fontWeight: 600,
-                color: LABEL_MUTED,
-                margin: 0,
-                lineHeight: 1.25
-              }}
-            >
-              Team Intelligence
-            </h3>
-            <span style={expansionTagBase}>BETA</span>
-          </div>
+          <h3
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontSize: 19,
+              fontWeight: 600,
+              color: LABEL_MUTED,
+              margin: '0 0 12px',
+              lineHeight: 1.25
+            }}
+          >
+            Team Intelligence
+          </h3>
           <p
             style={{
               fontFamily: FONT_SANS,
@@ -1257,30 +1240,18 @@ function PlatformExpansionSection() {
           </p>
         </div>
         <div style={expansionCardShell}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12 }}>
-            <h3
-              style={{
-                fontFamily: FONT_DISPLAY,
-                fontSize: 19,
-                fontWeight: 600,
-                color: LABEL_MUTED,
-                margin: 0,
-                lineHeight: 1.25
-              }}
-            >
-              Hard Call Simulator
-            </h3>
-            <span
-              style={{
-                ...expansionTagBase,
-                color: GROUNDWORK_TEAL,
-                borderColor: 'rgba(10, 95, 99, 0.42)',
-                backgroundColor: 'rgba(10, 95, 99, 0.07)'
-              }}
-            >
-              IN DEVELOPMENT
-            </span>
-          </div>
+          <h3
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontSize: 19,
+              fontWeight: 600,
+              color: LABEL_MUTED,
+              margin: '0 0 12px',
+              lineHeight: 1.25
+            }}
+          >
+            Hard Call Simulator
+          </h3>
           <p
             style={{
               fontFamily: FONT_SANS,
