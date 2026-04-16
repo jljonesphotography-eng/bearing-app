@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
+import { parseStructuredActionItem } from '@/app/lib/parseStructuredActionItem';
 
 const COLORS = {
   navy: '#1B3A6B',
@@ -431,11 +432,19 @@ export default function DashboardPage() {
                       lineHeight: 1.65
                     }}
                   >
-                    {actions.map((item, idx) => (
-                      <li key={idx} style={{ marginBottom: 8 }}>
-                        {String(item).trim()}
-                      </li>
-                    ))}
+                    {actions.map((item, idx) => {
+                      const full = String(item).trim();
+                      const parsed = parseStructuredActionItem(full);
+                      const line =
+                        parsed?.matchedAllLabels && parsed.what
+                          ? parsed.what
+                          : full;
+                      return (
+                        <li key={idx} style={{ marginBottom: 8 }}>
+                          {line}
+                        </li>
+                      );
+                    })}
                   </ol>
                 )}
 
