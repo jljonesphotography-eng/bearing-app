@@ -170,20 +170,21 @@ function parseStructuredActionItem(raw) {
     const labelUpper = label.toUpperCase();
     if (!upper.startsWith(labelUpper)) return null;
     const rest = line.slice(label.length).trim();
-    // Prefer long dash, then colon, then standard/en dash.
+    // Prefer long dash, then colon, then standard/en dash. Use only the first delimiter
+    // after the label so colons/hyphens inside the sentence are not treated as split points.
     const separators = ['—', ':', '-', '–'];
-    let value = null;
     for (const sep of separators) {
-      if (!rest.includes(sep)) continue;
-      const split = rest.split(sep);
-      if (split.length < 2) continue;
-      value = split.slice(1).join(sep).trim();
-      if (value) break;
+      const idx = rest.indexOf(sep);
+      if (idx === -1) continue;
+      if (rest.slice(0, idx).trim().length > 0) continue;
+      const value = rest.slice(idx + sep.length).trim();
+      if (value) return value;
     }
-    if (!value && /^[—:–-]\s*/.test(rest)) {
-      value = rest.replace(/^[—:–-]\s*/, '').trim();
+    if (/^[—:–-]\s*/.test(rest)) {
+      const v = rest.replace(/^[—:–-]\s*/, '').trim();
+      return v || null;
     }
-    return value || null;
+    return null;
   };
   for (const line of lines) {
     if (!line) continue;
