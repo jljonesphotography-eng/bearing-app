@@ -174,7 +174,7 @@ score: 0-100
 capability_score: integer 0-100 (required; follow CAPABILITY SCORE guidance above)
 primary_finding: one specific sentence naming what this person genuinely brings — specific to them, not a category
 zone: Zone 1, Zone 2, Zone 3, or Zone 4
-action_1, action_2, action_3: three specific next actions based on what was actually found
+action_1, action_2, action_3: three specific next actions based on what was actually found. Each action must be a single string with exactly four lines separated by \n in this exact format — WHAT — [one complete sentence describing the action]\nWHY NOW — [one complete sentence explaining why this matters urgently right now]\nTHIS WEEK — [one complete sentence describing exactly what doing this looks like in the next 7 days]\nWHAT CHANGES — [one complete sentence describing what will be different when they do this consistently] — every sentence must be grammatically complete and end with a period.
 energy_profile: Build, Explore, Optimize, or Honest_Conversation
 
 DIMENSION FINDINGS — REQUIRED IN THE SAME JSON (each value is one sentence, specific to this person, never generic):
@@ -194,11 +194,11 @@ const MIN_MESSAGES_FOR_RESULT_RETRY = 16;
 const FOLLOW_UP_USER_MESSAGE =
   'Please now output your structured assessment result in the required format.';
 
-const SYSTEM_PROMPT_STRUCTURED_OUTPUT_ONLY =
+  action_1, action_2, action_3 (each must be exactly four lines separated by \n: WHAT — [complete sentence]\nWHY NOW — [complete sentence]\nTHIS WEEK — [complete sentence]\nWHAT CHANGES — [complete sentence], every sentence grammatically complete ending with a period)
   'You must now output ONLY a JSON object wrapped in <assessment_result> tags. No other text before the tags. The JSON must contain: verdict (WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (0-100), capability_score (integer 0-100 — analyze the user text responses: higher for specific, messy, concrete process detail; lower for vague or generic fluff), primary_finding (one specific sentence about what this person genuinely brings), zone (Zone 1, Zone 2, Zone 3, or Zone 4), action_1, action_2, action_3 (three specific next actions), energy_profile (Build, Explore, Optimize, or Honest_Conversation), dim_judgment (one sentence: judgment depth / ambiguity — specific to this person; name Zone 1, 2, or 3 signal if applicable; never "Not observed"), dim_relational (one sentence: relational intelligence / human dimensions), dim_synthesis (one sentence: synthesis / competing priorities), dim_creative (one sentence: novel thinking vs existing frameworks), dim_adaptive (one sentence: edge of expertise / adaptive execution). Output the tags immediately.';
 
 const SYSTEM_PROMPT_FORCE_VERDICT =
-  'Based on the conversation history provided, output ONLY a JSON object wrapped in <assessment_result> tags. Nothing before the tags. The JSON must contain exactly these fields: verdict (must be one of: WELL_POSITIONED, TRANSITION_ADVISED, or EXPOSED), score (integer 0-100), capability_score (integer 0-100 — from the user text responses: higher for specific, messy, concrete detail; lower for vague fluff), primary_finding (one specific sentence naming what this person genuinely brings that AI cannot replace), zone (one of: Zone 1, Zone 2, Zone 3, or Zone 4), action_1 (specific next action), action_2 (specific next action), action_3 (specific next action), energy_profile (one of: Build, Explore, Optimize, Honest_Conversation), dim_judgment (one sentence on judgment depth / unclear situations — specific to this person; name Zone 1/2/3 if applicable; never "Not observed"), dim_relational (one sentence on relational intelligence), dim_synthesis (one sentence on holding competing priorities), dim_creative (one sentence on novelty vs frameworks), dim_adaptive (one sentence on edge of expertise). Output the opening tag, then valid JSON, then the closing tag. Nothing else.';
+
 
 /** First turn when POST body has messages: [] */
 const ASSESSMENT_START_USER_MESSAGE =
@@ -314,7 +314,7 @@ export async function POST(req) {
 
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 2048,
+      max_tokens: 4096,
       system: systemPrompt,
       messages
     });
@@ -334,7 +334,7 @@ export async function POST(req) {
 
       const second = await anthropic.messages.create({
         model: MODEL,
-        max_tokens: 2048,
+        max_tokens: 4096,
         system: SYSTEM_PROMPT_STRUCTURED_OUTPUT_ONLY,
         messages: followUpMessages
       });
