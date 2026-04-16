@@ -166,6 +166,22 @@ export async function POST(req) {
     const parsed = parseExtractedJson(text);
     applyDimensionPlainSplit(parsed);
 
+    console.log(
+      '[api/assessment/extract] action_1 raw (chars=%s):',
+      parsed.action_1 == null ? 'null' : String(parsed.action_1).length,
+      parsed.action_1
+    );
+    console.log(
+      '[api/assessment/extract] action_2 raw (chars=%s):',
+      parsed.action_2 == null ? 'null' : String(parsed.action_2).length,
+      parsed.action_2
+    );
+    console.log(
+      '[api/assessment/extract] action_3 raw (chars=%s):',
+      parsed.action_3 == null ? 'null' : String(parsed.action_3).length,
+      parsed.action_3
+    );
+
     if (parsed.energy_profile != null) {
       parsed.energy_profile = normalizeEnergyProfile(parsed.energy_profile);
     }
