@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic';
 'use client';
+
+export const dynamic = 'force-dynamic';
 
 import BearingThinkingOverlay from '@/app/components/BearingThinkingOverlay';
 import Link from 'next/link';
