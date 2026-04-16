@@ -4,9 +4,14 @@ import { isAnthropicOverloadOrServerError } from '@/app/lib/anthropic-capacity';
 
 const MODEL = 'claude-sonnet-4-20250514';
 
+/** Minimum 2000 so action_1/2/3 and dimension strings are not cut off mid-generation. */
+const EXTRACT_MAX_TOKENS = Math.max(2000, 4096);
+
 const PLAIN_DELIM = '||PLAIN||';
 
-const SYSTEM_PROMPT = `You are extracting structured assessment results from a Human Capability Intelligence conversation. Read the full conversation and extract the following fields as JSON with no preamble and no markdown backticks. Base everything strictly on what was observed in this conversation.
+const SYSTEM_PROMPT = `ABSOLUTE RULE: Every sentence you write must be grammatically complete. Never end a sentence with a comma, dash, preposition, article, or conjunction. If you start a sentence, finish it. This applies to every field in the JSON output without exception.
+
+You are extracting structured assessment results from a Human Capability Intelligence conversation. Read the full conversation and extract the following fields as JSON with no preamble and no markdown backticks. Base everything strictly on what was observed in this conversation.
 
 Required JSON keys: verdict, primary_finding, zone, energy_profile, action_1, action_2, action_3, dim_judgment, dim_relational, dim_synthesis, dim_creative, dim_adaptive.
 
@@ -169,7 +174,7 @@ export async function POST(req) {
 
     const response = await anthropic.messages.create({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: EXTRACT_MAX_TOKENS,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: userContent }]
     });
