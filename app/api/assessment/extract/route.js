@@ -4,8 +4,8 @@ import { isAnthropicOverloadOrServerError } from '@/app/lib/anthropic-capacity';
 
 const MODEL = 'claude-sonnet-4-20250514';
 
-/** Minimum 2000 so action_1/2/3 and dimension strings are not cut off mid-generation. */
-const EXTRACT_MAX_TOKENS = Math.max(2000, 4096);
+/** Output budget for full JSON including action_1/2/3 and dimension strings. */
+const EXTRACT_MAX_TOKENS = 4000;
 
 const PLAIN_DELIM = '||PLAIN||';
 
